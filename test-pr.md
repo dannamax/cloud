@@ -1,1 +1,1 @@
-Test PR content for Stone Bounty
+Test PR content
