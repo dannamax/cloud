@@ -1,247 +1,154 @@
-# 京东云CLI工具 (JDCloud CLI)
+# JDCloud CLI Tool
 
-## 项目概述
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/go-1.21%2B-blue.svg)](go.mod)
 
-京东云CLI是一个命令行工具，用于管理和使用京东云资源。本项目旨在对标阿里云CLI，提供类似的功能和用户体验。
+A powerful command-line interface for JDCloud services, designed to rival Alibaba Cloud CLI.
 
-## 功能特性
+## 🌟 Features
 
-### 核心功能
-- ✅ 多认证方式支持（AK、临时凭证、角色扮演等）
-- ✅ 多区域支持
-- ✅ 多种输出格式（JSON、YAML、表格）
-- ✅ 命令自动补全
-- ✅ 配置文件管理
-- ✅ 轮询等待功能
+### Core Capabilities
+- ✅ Multiple authentication methods (AK, STS, role-based)
+- ✅ Multi-region support
+- ✅ Multiple output formats (JSON, YAML, table)
+- ✅ Command auto-completion
+- ✅ Configuration file management
+- ✅ Polling and waiting functionality
 
-### 云服务支持
-- ✅ 云服务器（VM）
-- ✅ 虚拟私有云（VPC）
-- ✅ 对象存储（OSS）
-- ⏳ 云数据库（RDS）
-- ⏳ 负载均衡（SLB）
-- ⏳ 弹性伸缩（AS）
+### Cloud Services Support
+- ✅ **VM (Virtual Machines)**: Create, start, stop, reboot, delete instances
+- ✅ **VPC (Virtual Private Cloud)**: Manage VPCs and subnets
+- ✅ **OSS (Object Storage Service)**: Manage buckets and objects
+- ⏳ RDS (Relational Database Service) - Coming soon
+- ⏳ SLB (Server Load Balancer) - Coming soon
+- ⏳ AS (Auto Scaling) - Coming soon
 
-### 高级功能
-- ✅ 批量操作
-- ✅ 模板化部署
-- ✅ 脚本化执行
-- ✅ 结果过滤和查询
+### Advanced Features
+- ✅ Batch operations
+- ✅ Template-based deployment
+- ✅ Scriptable execution
+- ✅ Result filtering and querying
 
-## 安装方式
+## 🚀 Quick Start
 
-### 通过脚本安装（推荐）
+### Installation
+
 ```bash
+# Via install script (recommended)
 /bin/bash -c "$(curl -fsSL https://jdcloud-cli.jd.com/install.sh)"
+
+# Or build from source
+git clone https://github.com/dannamax/cloud.git
+cd cloud
+git checkout jdcloud-cli
+make build
+sudo cp bin/jdcloud /usr/local/bin/
 ```
 
-### 手动安装
-```bash
-# 下载对应平台的二进制文件
-curl -O https://jdcloud-cli.jd.com/jdcloud-cli-linux-amd64.tar.gz
-tar -xzf jdcloud-cli-linux-amd64.tar.gz
-sudo mv jdcloud /usr/local/bin/
-```
+### Configuration
 
-## 快速开始
-
-### 1. 配置凭证
 ```bash
+# Configure credentials
 jdcloud configure
+
+# Or use environment variables
+export JDCLOUD_ACCESS_KEY_ID="your-access-key-id"
+export JDCLOUD_ACCESS_KEY_SECRET="your-secret-key"
+export JDCLOUD_REGION_ID="cn-north-1"
 ```
 
-### 2. 查看帮助信息
+### Usage Examples
+
 ```bash
-jdcloud help
+# List VM instances
+jdcloud vm describe-instances
+
+# Create a VM instance
+jdcloud vm create-instance --image-id img-xxxxx --instance-type g.n2.medium
+
+# Manage VPC
+jdcloud vpc describe-vpcs
+jdcloud vpc create-vpc --vpc-name my-vpc --cidr-block 10.0.0.0/16
+
+# Manage OSS
+jdcloud oss list-buckets
+jdcloud oss create-bucket --bucket-name my-bucket
 ```
 
-### 3. 使用示例
+## 🛠️ Dual Mode Support
+
+### Real API Mode
+Connects to actual JDCloud services using valid API credentials.
+
+### Mock Mode
 ```bash
-# 使用模拟模式（默认）
 export JDCLOUD_MOCK_MODE=true
 jdcloud vm describe-instances
-
-# 查看云服务器列表
-jdcloud vm describe-instances
-
-# 创建云服务器
-jdcloud vm create-instance --image-id img-xxxxx --instance-type g.n2.medium
-
-# 启动云服务器
-jdcloud vm start-instance i-xxxxxxxxx
-
-# 停止云服务器
-jdcloud vm stop-instance i-xxxxxxxxx
-
-# 重启云服务器
-jdcloud vm reboot-instance i-xxxxxxxxx
-
-# 删除云服务器
-jdcloud vm delete-instance i-xxxxxxxxx
-
-# 查看VPC列表
-jdcloud vpc describe-vpcs
-
-# 创建VPC
-jdcloud vpc create-vpc --vpc-name my-vpc --cidr-block 10.0.0.0/16
-
-# 删除VPC
-jdcloud vpc delete-vpc vpc-xxxxxxxxx
-
-# 查看子网列表
-jdcloud vpc describe-subnets
-
-# 创建子网
-jdcloud vpc create-subnet --vpc-id vpc-xxxxxxxxx --subnet-name my-subnet --cidr-block 10.0.1.0/24
-
-# 查看存储桶列表
-jdcloud oss list-buckets
-
-# 创建存储桶
-jdcloud oss create-bucket --bucket-name my-bucket
-
-# 查看对象列表
-jdcloud oss list-objects --bucket-name my-bucket
-
-# 上传对象
-jdcloud oss upload-object --bucket-name my-bucket --object-key file.txt --file-path /path/to/file.txt
-
-# 下载对象
-jdcloud oss download-object --bucket-name my-bucket --object-key file.txt --file-path /path/to/downloaded.txt
-
-# 删除对象
-jdcloud oss delete-object --bucket-name my-bucket --object-key file.txt
-
-# 删除存储桶
-jdcloud oss delete-bucket my-bucket
 ```
+Returns preset mock data for testing and learning purposes.
 
-### 3. 使用示例
+## 📚 Documentation
+
+- [Quick Start Guide](docs/quick-start.md)
+- [Authentication Configuration](docs/authentication.md)
+- [Usage Examples](docs/examples.md)
+- [Feature Comparison](docs/comparison.md)
+
+## 🔧 Development
+
+### Prerequisites
+- Go 1.21 or higher
+- Make
+
+### Build
 ```bash
-# 查看云服务器列表
-jdcloud vm describe-instances
-
-# 创建云服务器
-jdcloud vm create-instance --image-id img-xxxxx --instance-type g.n2.medium
-
-# 启动云服务器
-jdcloud vm start-instance i-xxxxxxxxx
-
-# 停止云服务器
-jdcloud vm stop-instance i-xxxxxxxxx
-
-# 重启云服务器
-jdcloud vm reboot-instance i-xxxxxxxxx
-
-# 删除云服务器
-jdcloud vm delete-instance i-xxxxxxxxx
-
-# 查看VPC列表
-jdcloud vpc describe-vpcs
-
-# 创建VPC
-jdcloud vpc create-vpc --vpc-name my-vpc --cidr-block 10.0.0.0/16
-
-# 删除VPC
-jdcloud vpc delete-vpc vpc-xxxxxxxxx
-
-# 查看子网列表
-jdcloud vpc describe-subnets
-
-# 创建子网
-jdcloud vpc create-subnet --vpc-id vpc-xxxxxxxxx --subnet-name my-subnet --cidr-block 10.0.1.0/24
-
-# 查看存储桶列表
-jdcloud oss list-buckets
-
-# 创建存储桶
-jdcloud oss create-bucket --bucket-name my-bucket
-
-# 查看对象列表
-jdcloud oss list-objects --bucket-name my-bucket
-
-# 上传对象
-jdcloud oss upload-object --bucket-name my-bucket --object-key file.txt --file-path /path/to/file.txt
-
-# 下载对象
-jdcloud oss download-object --bucket-name my-bucket --object-key file.txt --file-path /path/to/downloaded.txt
-
-# 删除对象
-jdcloud oss delete-object --bucket-name my-bucket --object-key file.txt
-
-# 删除存储桶
-jdcloud oss delete-bucket my-bucket
+make build
 ```
 
-## 命令结构
-
+### Test
+```bash
+make test
 ```
-jdcloud <service> <operation> [--parameter1 value1 --parameter2 value2 ...]
+
+### Install
+```bash
+make install
 ```
 
-## 与阿里云CLI对比
+## 📝 Project Structure
 
-| 功能 | 京东云CLI | 阿里云CLI |
-|------|-----------|-----------|
-| 认证方式 | 多种认证方式 | 多种认证方式 |
-| 输出格式 | JSON、YAML、表格 | JSON、表格 |
-| 自动补全 | ✅ | ✅ |
-| 配置文件 | ✅ | ✅ |
-| 轮询等待 | ✅ | ✅ |
-| 批量操作 | ✅ | ✅ |
-| 模板化部署 | ✅ | ❌ |
-| 脚本化执行 | ✅ | ✅ |
-
-## 文档
-
-- [快速开始](docs/quick-start.md) - 快速上手京东云CLI
-- [认证配置](docs/authentication.md) - 详细说明如何配置API凭证
-- [使用示例](docs/examples.md) - 详细的使用示例和脚本
-- [功能对比](docs/comparison.md) - 与阿里云CLI的详细对比
-
-## 开发指南
-
-### 技术栈
-- 语言：Go
-- 构建工具：Makefile
-- 依赖管理：Go Modules
-- 测试框架：Go Test
-
-### 项目结构
 ```
 jdcloud-cli/
-├── cmd/              # 命令行入口
-├── internal/         # 内部实现
-│   ├── auth/         # 认证模块
-│   ├── command/      # 命令实现
-│   ├── config/       # 配置管理
-│   ├── output/       # 输出格式化
-│   └── utils/        # 工具函数
-├── docs/             # 文档
-├── scripts/          # 脚本文件
-└── bin/              # 编译后的二进制文件
+├── cmd/              # Command-line entry points
+├── internal/         # Internal implementation
+│   ├── api/          # API client implementation
+│   ├── auth/         # Authentication module
+│   ├── command/      # Command implementations
+│   ├── config/       # Configuration management
+│   ├── output/       # Output formatting
+│   └── utils/        # Utility functions
+├── docs/             # Documentation
+├── scripts/          # Scripts for installation, testing, and release
+└── bin/              # Compiled binaries
 ```
 
-### 构建和测试
+## 🤝 Contributing
 
-```bash
-# 构建
-make build
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-# 运行测试
-make test
+## 📄 License
 
-# 安装
-make install
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-# 清理
-make clean
-```
+## 🙏 Acknowledgments
 
-## 贡献指南
+- Inspired by Alibaba Cloud CLI
+- Built with Go and Cobra framework
+- Uses JDCloud official SDK
 
-欢迎提交Issue和Pull Request来改进京东云CLI。
+## 📞 Support
 
-## 许可证
-
-Apache License 2.0
+If you encounter any issues or have questions, please:
+1. Check the [documentation](docs/)
+2. Search existing [issues](https://github.com/dannamax/cloud/issues)
+3. Create a new issue if needed
