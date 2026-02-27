@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jdcloud/jdcloud-cli/internal/api"
@@ -16,10 +17,10 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vm",
 		Short: "云服务器管理",
-		Long:  "管理京东云云服务器（VM）实例",
+		Long:  "管理京东云云服务器（VM）实例，包括创建、启动、停止、删除等完整生命周期管理",
 	}
 
-	// 添加子命令
+	// 添加基础子命令
 	cmd.AddCommand(newDescribeInstancesCmd())
 	cmd.AddCommand(newCreateInstanceCmd())
 	cmd.AddCommand(newStartInstanceCmd())
@@ -27,20 +28,31 @@ func NewCmd() *cobra.Command {
 	cmd.AddCommand(newRebootInstanceCmd())
 	cmd.AddCommand(newDeleteInstanceCmd())
 
+	// 添加扩展子命令
+	AddExtendedCommands(cmd)
+
 	return cmd
 }
 
 // newDescribeInstancesCmd 创建describe-instances子命令
 func newDescribeInstancesCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "describe-instances",
 		Short: "列出云服务器实例",
-		Long:  "列出当前区域下的所有云服务器实例",
+		Long:  "列出当前区域下的所有云服务器实例，支持多种过滤条件",
 		Run: func(cmd *cobra.Command, args []string) {
 			// 获取配置
 			profile, _ := cmd.Flags().GetString("profile")
 			region, _ := cmd.Flags().GetString("region")
 			outputFormat, _ := cmd.Flags().GetString("output")
+			
+			// 获取过滤参数
+			_, _ = cmd.Flags().GetString("instance-ids")
+			instanceName, _ := cmd.Flags().GetString("instance-name")
+			status, _ := cmd.Flags().GetString("status")
+			instanceType, _ := cmd.Flags().GetString("instance-type")
+			pageNumber, _ := cmd.Flags().GetInt("page-number")
+			pageSize, _ := cmd.Flags().GetInt("page-size")
 			
 			// 如果未指定区域，使用配置中的默认区域
 			if region == "" {
@@ -65,6 +77,25 @@ func newDescribeInstancesCmd() *cobra.Command {
 						"PublicIp":     "114.114.114.10",
 						"Region":       region,
 						"CreatedTime":  time.Now().Add(-24 * time.Hour).Format("2006-01-02T15:04:05Z"),
+						"Az":           "cn-north-1a",
+						"VpcId":        "vpc-12345678",
+						"SubnetId":     "subnet-12345678",
+						"ImageId":      "img-12345678",
+						"SystemDisk": map[string]interface{}{
+							"DiskSizeGB": 50,
+							"DiskType":   "ssd.gp1",
+						},
+						"DataDisks": []map[string]interface{}{
+							{
+								"DiskSizeGB": 100,
+								"DiskType":   "ssd.gp1",
+							},
+						},
+						"NetworkInterface": map[string]interface{}{
+							"NetworkInterfaceId": "eni-12345678",
+							"PrimaryIp":          "192.168.1.10",
+							"MacAddress":         "fa:16:3e:12:34:56",
+						},
 					},
 					{
 						"InstanceId":   "i-0987654321fedcba0",
@@ -75,12 +106,59 @@ func newDescribeInstancesCmd() *cobra.Command {
 						"PublicIp":     "",
 						"Region":       region,
 						"CreatedTime":  time.Now().Add(-48 * time.Hour).Format("2006-01-02T15:04:05Z"),
+						"Az":           "cn-north-1b",
+						"VpcId":        "vpc-87654321",
+						"SubnetId":     "subnet-87654321",
+						"ImageId":      "img-87654321",
+						"SystemDisk": map[string]interface{}{
+							"DiskSizeGB": 100,
+							"DiskType":   "ssd.io1",
+						},
+						"DataDisks": []map[string]interface{}{},
+						"NetworkInterface": map[string]interface{}{
+							"NetworkInterfaceId": "eni-87654321",
+							"PrimaryIp":          "192.168.1.20",
+							"MacAddress":         "fa:16:3e:65:43:21",
+						},
 					},
 				}
 				
+				// 应用过滤条件
+				filteredInstances := []map[string]interface{}{}
+				for _, instance := range instances {
+					// 过滤实例名称
+					if instanceName != "" && !strings.Contains(instance["InstanceName"].(string), instanceName) {
+						continue
+					}
+					// 过滤状态
+					if status != "" && instance["Status"].(string) != status {
+						continue
+					}
+					// 过滤实例类型
+					if instanceType != "" && instance["InstanceType"].(string) != instanceType {
+						continue
+					}
+					filteredInstances = append(filteredInstances, instance)
+				}
+				
+				// 应用分页
+				start := (pageNumber - 1) * pageSize
+				if start < 0 {
+					start = 0
+				}
+				end := start + pageSize
+				if end > len(filteredInstances) {
+					end = len(filteredInstances)
+				}
+				if start >= len(filteredInstances) {
+					filteredInstances = []map[string]interface{}{}
+				} else {
+					filteredInstances = filteredInstances[start:end]
+				}
+				
 				// 输出结果
-				headers := []string{"InstanceId", "InstanceName", "InstanceType", "Status", "PrivateIp", "PublicIp", "Region", "CreatedTime"}
-				if err := output.Print(instances, outputFormat, headers); err != nil {
+				headers := []string{"InstanceId", "InstanceName", "InstanceType", "Status", "PrivateIp", "PublicIp", "Region", "Az", "CreatedTime"}
+				if err := output.Print(filteredInstances, outputFormat, headers); err != nil {
 					fmt.Printf("输出失败: %v\n", err)
 				}
 			} else {
@@ -115,6 +193,16 @@ func newDescribeInstancesCmd() *cobra.Command {
 			}
 		},
 	}
+
+	// 添加标志
+	cmd.Flags().String("instance-ids", "", "实例ID列表，多个用逗号分隔")
+	cmd.Flags().String("instance-name", "", "实例名称过滤")
+	cmd.Flags().String("status", "", "实例状态过滤 (running, stopped, pending, etc.)")
+	cmd.Flags().String("instance-type", "", "实例规格过滤")
+	cmd.Flags().Int("page-number", 1, "页码")
+	cmd.Flags().Int("page-size", 20, "每页数量")
+
+	return cmd
 }
 
 // newCreateInstanceCmd 创建create-instance子命令
@@ -122,15 +210,20 @@ func newCreateInstanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create-instance",
 		Short: "创建云服务器实例",
-		Long:  "创建一个新的云服务器实例",
+		Long:  "创建一个新的云服务器实例，支持完整的实例配置参数",
 		Run: func(cmd *cobra.Command, args []string) {
-			// 获取参数
+			// 获取必需参数
 			imageID, _ := cmd.Flags().GetString("image-id")
 			instanceType, _ := cmd.Flags().GetString("instance-type")
+			
+			// 获取可选参数
 			_, _ = cmd.Flags().GetString("instance-name")
-			_, _ = cmd.Flags().GetString("password")
-			_, _ = cmd.Flags().GetString("vpc-id")
-			_, _ = cmd.Flags().GetString("subnet-id")
+			count, _ := cmd.Flags().GetInt("count")
+			systemDiskSize, _ := cmd.Flags().GetInt("system-disk-size")
+			systemDiskType, _ := cmd.Flags().GetString("system-disk-type")
+			chargeMode, _ := cmd.Flags().GetString("charge-mode")
+			_, _ = cmd.Flags().GetBool("auto-renew")
+			_, _ = cmd.Flags().GetInt("auto-renew-period")
 			
 			// 验证必需参数
 			if imageID == "" || instanceType == "" {
@@ -153,17 +246,39 @@ func newCreateInstanceCmd() *cobra.Command {
 				}
 			}
 			
+			// 设置默认值
+			if count <= 0 {
+				count = 1
+			}
+			if systemDiskSize <= 0 {
+				systemDiskSize = 50
+			}
+			if systemDiskType == "" {
+				systemDiskType = "ssd.gp1"
+			}
+			if chargeMode == "" {
+				chargeMode = "postpaid_by_duration"
+			}
+			
 			// 模拟创建实例
-			newInstanceID := "i-" + fmt.Sprintf("%017d", time.Now().Unix())
+			var instanceIds []string
+			for i := 0; i < count; i++ {
+				instanceID := "i-" + fmt.Sprintf("%017d", time.Now().Unix()+int64(i))
+				instanceIds = append(instanceIds, instanceID)
+			}
 			
 			// 准备输出数据
 			result := map[string]interface{}{
 				"RequestId":   fmt.Sprintf("req-%d", time.Now().Unix()),
 				"Success":     true,
-				"InstanceIds": []string{newInstanceID},
+				"InstanceIds": instanceIds,
 			}
 			
-			fmt.Printf("成功创建实例: %s\n", newInstanceID)
+			if len(instanceIds) == 1 {
+				fmt.Printf("成功创建实例: %s\n", instanceIds[0])
+			} else {
+				fmt.Printf("成功创建实例: %v\n", instanceIds)
+			}
 			
 			// 输出结果
 			if err := output.Print(result, outputFormat, []string{}); err != nil {
@@ -173,12 +288,27 @@ func newCreateInstanceCmd() *cobra.Command {
 	}
 
 	// 添加标志
-	cmd.Flags().String("image-id", "", "镜像ID")
-	cmd.Flags().String("instance-type", "", "实例规格")
+	cmd.Flags().String("image-id", "", "镜像ID (必需)")
+	cmd.Flags().String("instance-type", "", "实例规格 (必需)")
 	cmd.Flags().String("instance-name", "", "实例名称")
 	cmd.Flags().String("password", "", "实例密码")
+	cmd.Flags().String("keypair-name", "", "密钥对名称")
 	cmd.Flags().String("vpc-id", "", "VPC ID")
 	cmd.Flags().String("subnet-id", "", "子网ID")
+	cmd.Flags().String("az", "", "可用区")
+	cmd.Flags().Int("count", 1, "实例数量")
+	cmd.Flags().Int("system-disk-size", 50, "系统盘大小(GB)")
+	cmd.Flags().String("system-disk-type", "ssd.gp1", "系统盘类型")
+	cmd.Flags().String("data-disk-sizes", "", "数据盘大小列表，多个用逗号分隔")
+	cmd.Flags().String("data-disk-types", "", "数据盘类型列表，多个用逗号分隔")
+	cmd.Flags().String("security-group-ids", "", "安全组ID列表，多个用逗号分隔")
+	cmd.Flags().String("description", "", "实例描述")
+	cmd.Flags().String("user-data", "", "用户数据")
+	cmd.Flags().String("charge-mode", "postpaid_by_duration", "计费模式")
+	cmd.Flags().String("charge-unit", "month", "计费单位")
+	cmd.Flags().Int("charge-duration", 1, "计费时长")
+	cmd.Flags().Bool("auto-renew", false, "是否自动续费")
+	cmd.Flags().Int("auto-renew-period", 1, "自动续费周期")
 
 	return cmd
 }
