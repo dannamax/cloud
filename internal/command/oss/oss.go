@@ -51,25 +51,43 @@ func newListBucketsCmd() *cobra.Command {
 				}
 			}
 			
-			// 模拟数据
-			buckets := []map[string]interface{}{
-				{
-					"BucketName":  "my-bucket-01",
-					"Region":      region,
-					"CreatedTime": time.Now().Add(-24 * time.Hour).Format("2006-01-02T15:04:05Z"),
-					"StorageClass": "Standard",
-				},
-				{
-					"BucketName":  "my-bucket-02",
-					"Region":      region,
-					"CreatedTime": time.Now().Add(-48 * time.Hour).Format("2006-01-02T15:04:05Z"),
-					"StorageClass": "InfrequentAccess",
+			// 模拟数据 - 匹配真实京东云OSS API响应格式
+			result := map[string]interface{}{
+				"RequestId": fmt.Sprintf("req-%d", time.Now().Unix()),
+				"Result": map[string]interface{}{
+					"Buckets": []map[string]interface{}{
+						{
+							"Name":         "my-bucket-01",
+							"Location":     region,
+							"CreationDate": time.Now().Add(-24 * time.Hour).Format("2006-01-02T15:04:05Z"),
+							"StorageClass": "STANDARD",
+						},
+						{
+							"Name":         "my-bucket-02",
+							"Location":     region,
+							"CreationDate": time.Now().Add(-48 * time.Hour).Format("2006-01-02T15:04:05Z"),
+							"StorageClass": "STANDARD_IA",
+						},
+					},
 				},
 			}
 			
 			// 输出结果
-			headers := []string{"BucketName", "Region", "CreatedTime", "StorageClass"}
-			if err := output.Print(buckets, outputFormat, headers); err != nil {
+			if outputFormat == "table" {
+				// 对于表格格式，提取buckets数组进行显示
+				if resultMap, ok := result["Result"].(map[string]interface{}); ok {
+					if buckets, ok := resultMap["Buckets"].([]map[string]interface{}); ok {
+						headers := []string{"Name", "Location", "CreationDate", "StorageClass"}
+						if err := output.Print(buckets, outputFormat, headers); err != nil {
+							fmt.Printf("输出失败: %v\n", err)
+						}
+						return
+					}
+				}
+			}
+			
+			// 对于JSON/YAML格式，输出完整结果
+			if err := output.Print(result, outputFormat, []string{}); err != nil {
 				fmt.Printf("输出失败: %v\n", err)
 			}
 		},
