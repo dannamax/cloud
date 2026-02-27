@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jdcloud/jdcloud-cli/internal/api"
+	"github.com/jdcloud/jdcloud-cli/internal/auth"
 	"github.com/jdcloud/jdcloud-cli/internal/config"
 	"github.com/jdcloud/jdcloud-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -51,44 +53,114 @@ func newListBucketsCmd() *cobra.Command {
 				}
 			}
 			
-			// 模拟数据 - 匹配真实京东云OSS API响应格式
-			result := map[string]interface{}{
-				"RequestId": fmt.Sprintf("req-%d", time.Now().Unix()),
-				"Result": map[string]interface{}{
-					"Buckets": []map[string]interface{}{
-						{
-							"Name":         "my-bucket-01",
-							"Location":     region,
-							"CreationDate": time.Now().Add(-24 * time.Hour).Format("2006-01-02T15:04:05Z"),
-							"StorageClass": "STANDARD",
-						},
-						{
-							"Name":         "my-bucket-02",
-							"Location":     region,
-							"CreationDate": time.Now().Add(-48 * time.Hour).Format("2006-01-02T15:04:05Z"),
-							"StorageClass": "STANDARD_IA",
+			// 检查是否使用模拟模式
+			if auth.IsMockMode() {
+				// 模拟数据 - 匹配真实京东云OSS API响应格式
+				result := map[string]interface{}{
+					"RequestId": fmt.Sprintf("req-%d", time.Now().Unix()),
+					"Result": map[string]interface{}{
+						"Buckets": []map[string]interface{}{
+							{
+								"Name":         "my-bucket-01",
+								"Location":     region,
+								"CreationDate": time.Now().Add(-24 * time.Hour).Format("2006-01-02T15:04:05Z"),
+								"StorageClass": "STANDARD",
+							},
+							{
+								"Name":         "my-bucket-02",
+								"Location":     region,
+								"CreationDate": time.Now().Add(-48 * time.Hour).Format("2006-01-02T15:04:05Z"),
+								"StorageClass": "STANDARD_IA",
+							},
 						},
 					},
-				},
-			}
-			
-			// 输出结果
-			if outputFormat == "table" {
-				// 对于表格格式，提取buckets数组进行显示
-				if resultMap, ok := result["Result"].(map[string]interface{}); ok {
-					if buckets, ok := resultMap["Buckets"].([]map[string]interface{}); ok {
-						headers := []string{"Name", "Location", "CreationDate", "StorageClass"}
-						if err := output.Print(buckets, outputFormat, headers); err != nil {
-							fmt.Printf("输出失败: %v\n", err)
+				}
+				
+				// 输出结果
+				if outputFormat == "table" {
+					// 对于表格格式，提取buckets数组进行显示
+					if resultMap, ok := result["result"].(map[string]interface{}); ok {
+						if buckets, ok := resultMap["buckets"].([]interface{}); ok {
+							// 转换buckets格式以适应表格显示
+							var formattedBuckets []map[string]interface{}
+							for _, bucket := range buckets {
+								if bucketMap, ok := bucket.(map[string]interface{}); ok {
+									formattedBuckets = append(formattedBuckets, map[string]interface{}{
+										"Name":         bucketMap["name"],
+										"Location":     region,
+										"CreationDate": bucketMap["creationDate"],
+										"StorageClass": "STANDARD", // 默认存储类型
+									})
+								}
+							}
+							headers := []string{"Name", "Location", "CreationDate", "StorageClass"}
+							if err := output.Print(formattedBuckets, outputFormat, headers); err != nil {
+								fmt.Printf("输出失败: %v\n", err)
+							}
+							return
 						}
-						return
 					}
 				}
-			}
-			
-			// 对于JSON/YAML格式，输出完整结果
-			if err := output.Print(result, outputFormat, []string{}); err != nil {
-				fmt.Printf("输出失败: %v\n", err)
+				
+				// 对于JSON/YAML格式，输出完整结果
+				if err := output.Print(result, outputFormat, []string{}); err != nil {
+					fmt.Printf("输出失败: %v\n", err)
+				}
+			} else {
+				// 获取客户端
+				client, err := auth.GetJDCloudClient(region, profile)
+				if err != nil {
+					fmt.Printf("获取客户端失败: %v\n", err)
+					return
+				}
+				
+				// 创建OSS API客户端
+				ossClient := api.NewOSSClient(&client.Credential, region)
+				
+				// 检查是否启用调试模式
+				if debug, _ := cmd.Flags().GetBool("debug"); debug {
+					ossClient.DebugMode()
+				}
+				
+				// 发送请求
+				result, err := ossClient.ListBuckets()
+				if err != nil {
+					fmt.Printf("获取存储桶列表失败: %v\n", err)
+					fmt.Println("提示：请确保您的Access Key ID和Secret Key有效，并且有权限访问OSS服务。")
+					fmt.Println("您可以在京东云控制台 -> 访问控制 -> 访问密钥管理中查看和管理您的密钥。")
+					return
+				}
+				
+				// 输出结果
+				if outputFormat == "table" {
+					// 对于表格格式，提取buckets数组进行显示
+					if resultMap, ok := result["result"].(map[string]interface{}); ok {
+						if buckets, ok := resultMap["buckets"].([]interface{}); ok {
+							// 转换buckets格式以适应表格显示
+							var formattedBuckets []map[string]interface{}
+							for _, bucket := range buckets {
+								if bucketMap, ok := bucket.(map[string]interface{}); ok {
+									formattedBuckets = append(formattedBuckets, map[string]interface{}{
+										"Name":         bucketMap["name"],
+										"Location":     region,
+										"CreationDate": bucketMap["creationDate"],
+										"StorageClass": "STANDARD", // 默认存储类型
+									})
+								}
+							}
+							headers := []string{"Name", "Location", "CreationDate", "StorageClass"}
+							if err := output.Print(formattedBuckets, outputFormat, headers); err != nil {
+								fmt.Printf("输出失败: %v\n", err)
+							}
+							return
+						}
+					}
+				}
+				
+				// 对于JSON/YAML格式，输出完整结果
+				if err := output.Print(result, outputFormat, []string{}); err != nil {
+					fmt.Printf("输出失败: %v\n", err)
+				}
 			}
 		},
 	}
