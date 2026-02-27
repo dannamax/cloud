@@ -1,14 +1,11 @@
 package api
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/jdcloud-api/jdcloud-sdk-go/core"
@@ -34,13 +31,11 @@ func NewClient(credential *core.Credential, region string) *Client {
 
 // DescribeInstances 获取实例列表
 func (c *Client) DescribeInstances() (map[string]interface{}, error) {
-	// 构建请求
-	params := map[string]interface{}{
-		"regionId": c.region,
-	}
+	// 构建请求URL
+	url := fmt.Sprintf("%s/v1/regions/%s/instances", c.endpoint, c.region)
 	
 	// 发送请求
-	resp, err := c.sendRequest("DescribeInstances", params)
+	resp, err := c.sendRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -49,25 +44,14 @@ func (c *Client) DescribeInstances() (map[string]interface{}, error) {
 }
 
 // sendRequest 发送API请求
-func (c *Client) sendRequest(action string, params map[string]interface{}) (map[string]interface{}, error) {
-	// 构建请求URL
-	u, err := url.Parse(c.endpoint + "/v1/regions/" + c.region + "/instances")
-	if err != nil {
-		return nil, err
+func (c *Client) sendRequest(method, url string, body []byte) (map[string]interface{}, error) {
+	// 创建HTTP请求
+	var reqBody io.Reader
+	if body != nil {
+		reqBody = bytes.NewReader(body)
 	}
 	
-	// 添加查询参数
-	q := u.Query()
-	
-	// 添加其他参数
-	for k, v := range params {
-		q.Set(k, fmt.Sprintf("%v", v))
-	}
-	
-	u.RawQuery = q.Encode()
-	
-	// 发送请求
-	req, err := http.NewRequest("GET", u.String(), nil)
+	req, err := http.NewRequest(method, url, reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -77,10 +61,14 @@ func (c *Client) sendRequest(action string, params map[string]interface{}) (map[
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "JDCloud-CLI/1.0")
 	
-	// 添加认证头部
-	authHeader := c.generateAuthHeader()
-	req.Header.Set("Authorization", authHeader)
+	// 使用京东云SDK的签名器
+	signer := core.NewSigner(*c.credential, core.NewDummyLogger())
+	_, err = signer.Sign(req, nil, "vm", "v1", time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("签名请求失败: %v", err)
+	}
 	
+	// 发送请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -88,20 +76,20 @@ func (c *Client) sendRequest(action string, params map[string]interface{}) (map[
 	defer resp.Body.Close()
 	
 	// 读取响应
-	body, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 	
 	// 检查HTTP状态码
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API请求失败，状态码: %d, 响应: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API请求失败，状态码: %d, 响应: %s", resp.StatusCode, string(respBody))
 	}
 	
 	// 解析响应
 	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("解析响应失败: %v, 响应内容: %s", err, string(body))
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %v, 响应内容: %s", err, string(respBody))
 	}
 	
 	// 检查API错误
@@ -120,36 +108,10 @@ func (c *Client) sendRequest(action string, params map[string]interface{}) (map[
 	return result, nil
 }
 
-// generateAuthHeader 生成认证头部
-func (c *Client) generateAuthHeader() string {
-	// 生成时间戳
-	timestamp := time.Now().UTC().Format("2006-01-02T15:04:05Z")
-	
-	// 生成随机数
-	nonce := fmt.Sprintf("%d", time.Now().UnixNano())
-	
-	// 构建签名字符串
-	stringToSign := fmt.Sprintf("GET\nvm.%s.jdcloud-api.com\n/v1/regions/%s/instances\n%s\n%s", 
-		c.region, c.region, timestamp, nonce)
-	
-	// 计算HMAC-SHA256签名
-	mac := hmac.New(sha256.New, []byte(c.credential.SecretKey))
-	mac.Write([]byte(stringToSign))
-	signature := base64.StdEncoding.EncodeToString(mac.Sum(nil))
-	
-	// 构建认证头部
-	authHeader := fmt.Sprintf("JDCLOUD-HMAC-SHA256 Credential=%s, SignedHeaders=host, Signature=%s",
-		c.credential.AccessKey, signature)
-	
-	return authHeader
-}
-
 // DebugMode 启用调试模式
 func (c *Client) DebugMode() {
 	// 可以在这里添加调试日志
 	fmt.Printf("使用凭证: AccessKey=%s\n", c.credential.AccessKey)
 	fmt.Printf("请求区域: %s\n", c.region)
 	fmt.Printf("请求端点: %s\n", c.endpoint)
-	authHeader := c.generateAuthHeader()
-	fmt.Printf("认证头部: %s\n", authHeader)
 }
