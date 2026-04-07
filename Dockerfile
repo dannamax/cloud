@@ -17,10 +17,10 @@ RUN apk add --no-cache python3 make g++ && ln -sf python3 /usr/bin/python
 
 WORKDIR /app
 
-# 配置 npm 国内镜像源和 node-gyp
-RUN npm config set registry https://registry.npmmirror.com && \
-    npm config set disturl https://registry.npmmirror.com/-/binary/node && \
-    npm config set node_gyp https://registry.npmmirror.com/-/binary/node-gyp
+# 配置 npm 国内镜像源和 node-gyp 环境变量
+ENV npm_config_registry=https://registry.npmmirror.com
+ENV npm_config_disturl=https://npmmirror.com/mirrors/node
+ENV npm_config_node_gyp=https://npmmirror.com/mirrors/node-gyp
 
 # 安装依赖 (利用 Docker 缓存)
 COPY package*.json ./
@@ -53,10 +53,10 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 -G nodejs
 
 WORKDIR /app
 
-# 配置 npm 国内镜像源和 node-gyp
-RUN npm config set registry https://registry.npmmirror.com && \
-    npm config set disturl https://registry.npmmirror.com/-/binary/node && \
-    npm config set node_gyp https://registry.npmmirror.com/-/binary/node-gyp
+# 配置 npm 国内镜像源和 node-gyp 环境变量
+ENV npm_config_registry=https://registry.npmmirror.com
+ENV npm_config_disturl=https://npmmirror.com/mirrors/node
+ENV npm_config_node_gyp=https://npmmirror.com/mirrors/node-gyp
 
 # 只复制生产依赖
 COPY package*.json ./
