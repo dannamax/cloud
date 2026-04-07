@@ -84,7 +84,7 @@ install_docker() {
         "CentOS"|"RedHat")
             log_info "安装 Docker (CentOS/RHEL)..."
             yum install -y yum-utils device-mapper-persistent-data lvm2
-            yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            yum-config-manager --add-repo https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
             yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
             ;;
         "EulerOS")
@@ -106,9 +106,23 @@ EOF
             ;;
     esac
     
+    # 配置国内镜像加速
+    log_info "配置 Docker 镜像加速器..."
+    mkdir -p /etc/docker
+    cat > /etc/docker/daemon.json << 'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.1ms.run",
+    "https://docker.xuanyuan.me",
+    "https://docker.m.daocloud.io"
+  ]
+}
+EOF
+    
     # 启动 Docker
     systemctl enable docker
-    systemctl start docker
+    systemctl daemon-reload
+    systemctl restart docker
     
     # 添加当前用户到 docker 组
     if [ -n "$SUDO_USER" ]; then
@@ -117,7 +131,7 @@ EOF
         usermod -aG docker $USER
     fi
     
-    log_success "Docker 安装完成"
+    log_success "Docker 安装完成 (已配置镜像加速)"
 }
 
 # 安装 Docker Compose

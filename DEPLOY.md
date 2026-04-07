@@ -34,6 +34,33 @@ chmod +x deploy.sh
 
 ## 详细部署步骤
 
+### 国内镜像加速配置 (必做!)
+
+如果服务器在国内，拉取 Docker 镜像可能会失败。请先配置镜像加速：
+
+```bash
+# 创建配置目录
+mkdir -p /etc/docker
+
+# 配置镜像加速器 (选择一个或多个)
+cat > /etc/docker/daemon.json << 'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.1ms.run",
+    "https://docker.xuanyuan.me",
+    "https://docker.m.daocloud.io"
+  ]
+}
+EOF
+
+# 重启 Docker
+systemctl daemon-reload
+systemctl restart docker
+
+# 验证镜像加速是否生效
+docker info | grep -A 5 "Registry Mirrors"
+```
+
 ### 方式一: 使用部署脚本 (推荐)
 
 ```bash
