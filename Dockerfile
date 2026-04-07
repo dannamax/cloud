@@ -4,7 +4,7 @@
 #==============================================================================
 # 阶段 1: 构建阶段
 #==============================================================================
-FROM node:20-alpine AS builder
+FROM docker.1ms.run/library/node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ RUN npm run build
 #==============================================================================
 # 阶段 2: 生产阶段
 #==============================================================================
-FROM node:20-alpine AS production
+FROM docker.1ms.run/library/node:20-alpine AS production
 
 # 安全: 创建非 root 用户
 RUN addgroup -g 1001 -S nodejs && \
