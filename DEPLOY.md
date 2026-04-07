@@ -17,8 +17,8 @@
 
 ```bash
 # 1. 下载代码
-git clone https://github.com/dannamax/cmdb-platform.git
-cd cmdb-platform
+git clone -b cmdb https://github.com/dannamax/cloud.git
+cd autopser
 
 # 2. 赋予脚本执行权限
 chmod +x deploy.sh
