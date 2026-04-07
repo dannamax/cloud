@@ -4,16 +4,16 @@
 #==============================================================================
 # 阶段 1: 构建阶段
 #==============================================================================
-FROM docker.1ms.run/library/node:20-alpine AS builder
+# 使用阿里云 Node 镜像（国内优化）
+FROM registry.cn-shanghai.aliyuncs.com/dannamax/node:20-alpine AS builder
 
-# 更换为国内 Alpine 镜像源
+# 更换为国内镜像源
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
     echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/main" >> /etc/apk/repositories && \
     echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/community" >> /etc/apk/repositories
 
-# 安装 Python 和编译工具 (用于编译原生模块如 better-sqlite3)
-RUN apk add --no-cache python3 make g++ && \
-    ln -sf python3 /usr/bin/python
+# 安装 Python 和编译工具
+RUN apk add --no-cache python3 make g++ && ln -sf python3 /usr/bin/python
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ RUN npm ci --legacy-peer-deps
 # 复制源代码
 COPY . .
 
-# TypeScript 类型检查 (可选，生产环境可注释)
+# TypeScript 类型检查
 RUN npx tsc --noEmit || true
 
 # 构建
@@ -36,30 +36,27 @@ RUN npm run build
 #==============================================================================
 # 阶段 2: 生产阶段
 #==============================================================================
-FROM docker.1ms.run/library/node:20-alpine AS production
+FROM registry.cn-shanghai.aliyuncs.com/dannamax/node:20-alpine AS production
 
-# 更换为国内 Alpine 镜像源
+# 更换为国内镜像源
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
     echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/main" >> /etc/apk/repositories && \
     echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/community" >> /etc/apk/repositories
 
-# 安装 Python 和编译工具 (用于运行原生模块)
-RUN apk add --no-cache python3 make g++ && \
-    ln -sf python3 /usr/bin/python
+# 安装 Python 和编译工具
+RUN apk add --no-cache python3 make g++ && ln -sf python3 /usr/bin/python
 
 # 安全: 创建非 root 用户
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 -G nodejs
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 -G nodejs
 
 WORKDIR /app
 
 # 配置 npm 国内镜像源
 RUN npm config set registry https://registry.npmmirror.com
 
-# 只复制生产依赖 (包含需要编译的原生模块)
+# 只复制生产依赖
 COPY package*.json ./
-RUN npm ci --only=production --legacy-peer-deps && \
-    npm cache clean --force
+RUN npm ci --only=production --legacy-peer-deps && npm cache clean --force
 
 # 复制构建产物
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
