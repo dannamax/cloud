@@ -64,6 +64,8 @@ export interface LoginResponse {
     username: string;
     display_name: string;
     role: string;
+    status?: 'active' | 'disabled';
+    created_at?: string;
   };
 }
 

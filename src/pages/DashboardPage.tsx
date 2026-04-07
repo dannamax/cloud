@@ -301,7 +301,7 @@ export function DashboardPage() {
               
               // 生成U位条
               const uBars = [];
-              const serverDistribution = [];
+              const serverDistribution: number[] = [];
               let remainingU = usedU;
               for (let i = 0; i < 10; i++) {
                 if (remainingU >= avgUPower) {
