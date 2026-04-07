@@ -32,7 +32,7 @@ COPY . .
 # TypeScript 类型检查
 RUN npx tsc --noEmit || true
 
-# 构建
+# 构建前端
 RUN npm run build
 
 #==============================================================================
@@ -84,4 +84,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # 启动命令
-CMD ["node", "server/index.ts"]
+CMD ["npx", "tsx", "server/index.ts"]
