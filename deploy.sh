@@ -62,11 +62,6 @@ check_docker() {
         install_docker
     fi
     
-    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-        log_error "Docker Compose 未安装，正在安装..."
-        install_docker_compose
-    fi
-    
     # 启动 Docker 服务
     if command -v systemctl &> /dev/null; then
         systemctl start docker 2>/dev/null || service docker start 2>/dev/null || true
@@ -178,7 +173,21 @@ start() {
         fi
     fi
     
-    docker-compose up -d
+    # 停止旧容器
+    docker stop $CONTAINER_NAME 2>/dev/null || true
+    docker rm $CONTAINER_NAME 2>/dev/null || true
+    
+    # 启动新容器
+    docker run -d \
+        --name $CONTAINER_NAME \
+        --restart unless-stopped \
+        -p $PORT:3000 \
+        -e NODE_ENV=production \
+        -e PORT=3000 \
+        -v cmdb-data:/app/data \
+        -v cmdb-uploads:/app/uploads \
+        $IMAGE_NAME
+    
     log_success "CMDB 平台已启动!"
     log_info "访问地址: http://localhost:$PORT"
     log_info "API 地址: http://localhost:$PORT/api"
@@ -187,7 +196,8 @@ start() {
 # 停止服务
 stop() {
     log_info "停止 CMDB 平台..."
-    docker-compose down
+    docker stop $CONTAINER_NAME 2>/dev/null || true
+    docker rm $CONTAINER_NAME 2>/dev/null || true
     log_success "CMDB 平台已停止"
 }
 
@@ -199,7 +209,7 @@ restart() {
 
 # 查看日志
 logs() {
-    docker-compose logs -f --tail=100
+    docker logs -f --tail=100 $CONTAINER_NAME
 }
 
 # 查看状态
@@ -237,10 +247,19 @@ status() {
 # 重建服务
 rebuild() {
     log_info "重建 CMDB 平台..."
-    docker-compose down
+    docker stop $CONTAINER_NAME 2>/dev/null || true
+    docker rm $CONTAINER_NAME 2>/dev/null || true
     docker rmi $IMAGE_NAME 2>/dev/null || true
     build
-    docker-compose up -d
+    docker run -d \
+        --name $CONTAINER_NAME \
+        --restart unless-stopped \
+        -p $PORT:3000 \
+        -e NODE_ENV=production \
+        -e PORT=3000 \
+        -v cmdb-data:/app/data \
+        -v cmdb-uploads:/app/uploads \
+        $IMAGE_NAME
     log_success "CMDB 平台重建完成!"
 }
 
