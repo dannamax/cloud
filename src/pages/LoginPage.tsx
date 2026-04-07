@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Lock, User } from 'lucide-react';
+import { Shield, Lock, User as UserIcon } from 'lucide-react';
 import { userApi } from '../services/api';
 import { useAppStore } from '../stores/appStore';
+import type { User } from '../types';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -29,7 +30,11 @@ export function LoginPage() {
     try {
       const response = await userApi.login(username, password);
       localStorage.setItem('token', response.token);
-      setUser(response.user);
+      setUser({
+        ...response.user,
+        status: response.user.status || 'active',
+        created_at: response.user.created_at || new Date().toISOString()
+      } as User);
       navigate('/dashboard');
     } catch (err: any) {
       // 增强错误处理
@@ -71,7 +76,7 @@ export function LoginPage() {
               <div>
                 <label className="block text-sm text-slate-400 mb-2">用户名</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                   <input
                     type="text"
                     value={username}
