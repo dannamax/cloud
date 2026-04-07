@@ -17,6 +17,9 @@ RUN apk add --no-cache python3 make g++ && \
 
 WORKDIR /app
 
+# 配置 npm 国内镜像源
+RUN npm config set registry https://registry.npmmirror.com
+
 # 安装依赖 (利用 Docker 缓存)
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps
@@ -49,6 +52,9 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 -G nodejs
 
 WORKDIR /app
+
+# 配置 npm 国内镜像源
+RUN npm config set registry https://registry.npmmirror.com
 
 # 只复制生产依赖 (包含需要编译的原生模块)
 COPY package*.json ./
