@@ -85,7 +85,12 @@ export_image() {
 create_deploy_script() {
     log_info "创建部署脚本..."
     
-    cat > deploy.sh << 'DEPLOY_EOF'
+    # 使用 deploy-offline.sh 作为模板
+    if [ -f "deploy-offline.sh" ]; then
+        cp deploy-offline.sh deploy.sh
+    else
+        # 如果没有 deploy-offline.sh，使用内嵌的脚本
+        cat > deploy.sh << 'DEPLOY_EOF'
 #!/bin/bash
 set -e
 
@@ -93,9 +98,10 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
-log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
@@ -114,6 +120,7 @@ check_docker() {
         echo "systemctl start docker && systemctl enable docker"
         exit 1
     fi
+    log_success "Docker 环境检查完成"
 }
 
 load_image() {
@@ -136,6 +143,12 @@ load_image() {
 
 start() {
     log_info "启动 CMDB 平台..."
+    
+    if ! docker images | grep -q "cmdb-platform"; then
+        log_error "镜像不存在，请先运行: ./deploy.sh load"
+        exit 1
+    fi
+    
     docker stop $CONTAINER_NAME 2>/dev/null || true
     docker rm $CONTAINER_NAME 2>/dev/null || true
     
@@ -179,6 +192,7 @@ case "${1:-help}" in
     *) echo "使用: $0 {start|stop|restart|logs|status|load}" ;;
 esac
 DEPLOY_EOF
+    fi
     
     chmod +x deploy.sh
     log_success "部署脚本创建完成"
