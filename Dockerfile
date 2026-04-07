@@ -1,0 +1,62 @@
+# CMDB Platform Dockerfile (多阶段构建)
+# 减小镜像体积，优化构建速度
+
+#==============================================================================
+# 阶段 1: 构建阶段
+#==============================================================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# 安装依赖 (利用 Docker 缓存)
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps
+
+# 复制源代码
+COPY . .
+
+# TypeScript 类型检查 (可选，生产环境可注释)
+RUN npx tsc --noEmit || true
+
+# 构建
+RUN npm run build
+
+#==============================================================================
+# 阶段 2: 生产阶段
+#==============================================================================
+FROM node:20-alpine AS production
+
+# 安全: 创建非 root 用户
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 -G nodejs
+
+WORKDIR /app
+
+# 只复制生产依赖
+COPY package*.json ./
+RUN npm ci --only=production --legacy-peer-deps && \
+    npm cache clean --force
+
+# 复制构建产物
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --chown=nodejs:nodejs server ./server
+
+# 创建数据目录
+RUN mkdir -p data uploads && chown -R nodejs:nodejs /app
+
+# 切换到非 root 用户
+USER nodejs
+
+# 端口
+EXPOSE 3000
+
+# 环境变量
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
+# 启动命令
+CMD ["node", "server/index.ts"]

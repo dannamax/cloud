@@ -1,0 +1,64 @@
+# CMDB Platform 生产环境部署
+# 包含后端服务 + Nginx 反向代理
+#
+# 使用方法:
+#   docker-compose -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  # CMDB 后端服务
+  cmdb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cmdb-backend
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      - cmdb-data:/app/data
+      - cmdb-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - cmdb-network
+    depends_on:
+      - nginx
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: cmdb-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # SSL 证书 (生产环境取消注释并配置)
+      # - /etc/letsencrypt:/etc/letsencrypt:ro
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cmdb-network
+
+networks:
+  cmdb-network:
+    driver: bridge
+
+volumes:
+  cmdb-data:
+    driver: local
+  cmdb-uploads:
+    driver: local
