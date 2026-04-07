@@ -65,9 +65,11 @@ RUN npm install --omit=dev --legacy-peer-deps
 # 复制构建产物
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --chown=nodejs:nodejs server ./server
+COPY --chown=nodejs:nodejs docker-entrypoint.sh ./
 
-# 创建数据目录
-RUN mkdir -p data uploads && chown -R nodejs:nodejs /app
+# 创建数据目录并设置权限
+RUN chmod +x docker-entrypoint.sh && \
+    mkdir -p data uploads && chown -R nodejs:nodejs /app
 
 # 切换到非 root 用户
 USER nodejs
@@ -84,4 +86,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # 启动命令
-CMD npx tsx server/index.ts
+CMD ["./docker-entrypoint.sh"]
