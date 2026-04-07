@@ -106,7 +106,7 @@ EOF
             ;;
     esac
     
-    # 配置国内镜像加速
+    # 配置国内镜像加速 (多源配置)
     log_info "配置 Docker 镜像加速器..."
     mkdir -p /etc/docker
     cat > /etc/docker/daemon.json << 'EOF'
@@ -114,7 +114,9 @@ EOF
   "registry-mirrors": [
     "https://docker.1ms.run",
     "https://docker.xuanyuan.me",
-    "https://docker.m.daocloud.io"
+    "https://docker.m.daocloud.io",
+    "https://dockerpull.cn",
+    "https://pull.unitech.tech"
   ]
 }
 EOF
@@ -123,6 +125,9 @@ EOF
     systemctl enable docker
     systemctl daemon-reload
     systemctl restart docker
+    
+    # 等待 Docker 启动
+    sleep 3
     
     # 添加当前用户到 docker 组
     if [ -n "$SUDO_USER" ]; then

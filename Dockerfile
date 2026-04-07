@@ -17,12 +17,13 @@ RUN apk add --no-cache python3 make g++ && ln -sf python3 /usr/bin/python
 
 WORKDIR /app
 
-# 配置 npm 国内镜像源
-RUN npm config set registry https://registry.npmmirror.com
+# 配置多个 npm 国内镜像源 (依次尝试)
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm config set backup-registry https://registry.aliyun.com
 
 # 安装依赖 (利用 Docker 缓存)
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps || npm install --legacy-peer-deps --registry=https://registry.aliyun.com || npm install --legacy-peer-deps --registry=https://registry.npmmirror.com
 
 # 复制源代码
 COPY . .
@@ -56,7 +57,7 @@ RUN npm config set registry https://registry.npmmirror.com
 
 # 只复制生产依赖
 COPY package*.json ./
-RUN npm install --omit=dev --legacy-peer-deps && npm cache clean --force
+RUN npm install --omit=dev --legacy-peer-deps || npm install --omit=dev --legacy-peer-deps --registry=https://registry.aliyun.com
 
 # 复制构建产物
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
