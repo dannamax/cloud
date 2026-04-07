@@ -6,6 +6,11 @@
 #==============================================================================
 FROM docker.1ms.run/library/node:20-alpine AS builder
 
+# 更换为国内 Alpine 镜像源
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
+    echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/main" >> /etc/apk/repositories && \
+    echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/community" >> /etc/apk/repositories
+
 # 安装 Python 和编译工具 (用于编译原生模块如 better-sqlite3)
 RUN apk add --no-cache python3 make g++ && \
     ln -sf python3 /usr/bin/python
@@ -29,6 +34,11 @@ RUN npm run build
 # 阶段 2: 生产阶段
 #==============================================================================
 FROM docker.1ms.run/library/node:20-alpine AS production
+
+# 更换为国内 Alpine 镜像源
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
+    echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/main" >> /etc/apk/repositories && \
+    echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/community" >> /etc/apk/repositories
 
 # 安装 Python 和编译工具 (用于运行原生模块)
 RUN apk add --no-cache python3 make g++ && \
