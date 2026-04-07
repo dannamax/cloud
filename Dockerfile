@@ -6,6 +6,10 @@
 #==============================================================================
 FROM docker.1ms.run/library/node:20-alpine AS builder
 
+# 安装 Python 和编译工具 (用于编译原生模块如 better-sqlite3)
+RUN apk add --no-cache python3 make g++ && \
+    ln -sf python3 /usr/bin/python
+
 WORKDIR /app
 
 # 安装依赖 (利用 Docker 缓存)
@@ -26,13 +30,17 @@ RUN npm run build
 #==============================================================================
 FROM docker.1ms.run/library/node:20-alpine AS production
 
+# 安装 Python 和编译工具 (用于运行原生模块)
+RUN apk add --no-cache python3 make g++ && \
+    ln -sf python3 /usr/bin/python
+
 # 安全: 创建非 root 用户
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 -G nodejs
 
 WORKDIR /app
 
-# 只复制生产依赖
+# 只复制生产依赖 (包含需要编译的原生模块)
 COPY package*.json ./
 RUN npm ci --only=production --legacy-peer-deps && \
     npm cache clean --force
