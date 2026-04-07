@@ -4,8 +4,8 @@
 #==============================================================================
 # 阶段 1: 构建阶段
 #==============================================================================
-# 使用阿里云 Node 镜像（国内优化）
-FROM registry.cn-shanghai.aliyuncs.com/dannamax/node:20-alpine AS builder
+# 使用 Docker 国内镜像源
+FROM docker.1ms.run/library/node:20-alpine AS builder
 
 # 更换为国内镜像源
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
@@ -36,7 +36,7 @@ RUN npm run build
 #==============================================================================
 # 阶段 2: 生产阶段
 #==============================================================================
-FROM registry.cn-shanghai.aliyuncs.com/dannamax/node:20-alpine AS production
+FROM docker.1ms.run/library/node:20-alpine AS production
 
 # 更换为国内镜像源
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
