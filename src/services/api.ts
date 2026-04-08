@@ -43,17 +43,17 @@ export const serverApi = {
   batchDelete: (ids: number[]) =>
     axios.post<{ success: boolean; deleted: number; message: string }>(`${API_BASE}/servers/batch/delete`, { ids }).then(r => r.data),
 
-  // Ping检测单个服务器
-  ping: (id: number) => axios.post<{ success: boolean; online: boolean; ip: string }>(`${API_BASE}/servers/${id}/ping`).then(r => r.data),
+  // 端口检测单个服务器
+  portCheck: (id: number) => axios.post<{ success: boolean; online: boolean; ip: string }>(`${API_BASE}/servers/${id}/port-check`).then(r => r.data),
 
-  // 批量Ping检测（支持环境过滤）
-  batchPing: (environment?: string) => axios.post<{ 
+  // 批量端口检测（支持环境过滤）
+  batchPortCheck: (environment?: string) => axios.post<{ 
     success: boolean; 
     results: any[]; 
     total: number; 
     online: number; 
     offline: number 
-  }>(`${API_BASE}/servers/batch/ping`, { environment }).then(r => r.data),
+  }>(`${API_BASE}/servers/batch/port-check`, { environment }).then(r => r.data),
 };
 
 // 变更日志API

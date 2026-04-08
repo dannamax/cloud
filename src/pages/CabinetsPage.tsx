@@ -52,13 +52,13 @@ export function CabinetsPage() {
   };
 
   // SSH端口探测（根据当前选择的环境范围）
-  const pingAllServers = async () => {
+  const checkAllPorts = async () => {
     setPinging(true);
     setPingProgress(0);
     
     try {
       // 使用批量探测接口（传递当前选择的环境）
-      const result = await serverApi.batchPing(filterEnvironment || undefined);
+      const result = await serverApi.batchPortCheck(filterEnvironment || undefined);
       
       // 更新所有服务器状态
       if (result.results && result.results.length > 0) {
@@ -324,7 +324,7 @@ export function CabinetsPage() {
           刷新
         </button>
         <button
-          onClick={pingAllServers}
+          onClick={checkAllPorts}
           disabled={pinging}
           className="flex items-center gap-2 px-4 py-1.5 bg-background-card border border-background-border rounded-lg text-slate-300 hover:text-white hover:border-primary/50 transition-colors disabled:opacity-50"
         >

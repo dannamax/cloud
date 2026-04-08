@@ -193,8 +193,8 @@ const EXCLUDE_PATTERNS = [
   /^\/api\/versions\/\d+$/,    // 版本详情查询
   /^\/api\/versions\/compare$/, // 版本比较
   /^\/api\/servers\/stats$/,
-  /^\/api\/servers\/batch\/ping$/,
-  /^\/api\/servers\/\d+\/ping$/,  // 服务器Ping检测接口
+  /^\/api\/servers\/batch\/port-check$/,
+  /^\/api\/servers\/\d+\/port-check$/,  // 服务器端口检测接口
   /^\/api\/import\/preview$/,
 ];
 

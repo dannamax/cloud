@@ -271,7 +271,7 @@ router.post('/batch/status', (req, res) => {
 });
 
 // SSH端口探测服务器（检测22端口）
-router.post('/:id/ping', async (req, res) => {
+router.post('/:id/port-check', async (req, res) => {
   const db = getDatabase();
   const server = db.prepare('SELECT * FROM servers WHERE id = ?').get(req.params.id) as any;
   
@@ -332,7 +332,7 @@ router.post('/:id/ping', async (req, res) => {
 });
 
 // 批量SSH端口探测（支持环境过滤，高并发）
-router.post('/batch/ping', async (req, res) => {
+router.post('/batch/port-check', async (req, res) => {
   const db = getDatabase();
   const { environment } = req.body;
   
