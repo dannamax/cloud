@@ -270,97 +270,42 @@ router.post('/batch/status', (req, res) => {
   res.json({ success: true });
 });
 
-// SSH端口探测服务器（检测22端口）
-router.post('/:id/port-check', async (req, res) => {
-  const db = getDatabase();
-  const server = db.prepare('SELECT * FROM servers WHERE id = ?').get(req.params.id) as any;
-  
-  if (!server) {
-    return res.status(404).json({ error: '服务器不存在' });
-  }
-  
-  const ip = server.system_ip || server.manage_ip;
-  if (!ip) {
-    return res.status(400).json({ error: '服务器没有IP地址' });
-  }
-  
-  try {
-    // 使用 nc 检测 SSH 端口（22）
-    const isWindows = process.platform === 'win32';
-    const timeout = 3; // 3秒超时
-    const port = 22;
-    
-    let cmd: string;
-    if (isWindows) {
-      // Windows 使用 PowerShell Test-NetConnection
-      cmd = `powershell -Command "Test-NetConnection -ComputerName ${ip} -Port ${port} -WarningAction SilentlyContinue | Select-Object -ExpandProperty TcpTestSucceeded"`;
-    } else {
-      // Linux/Mac 使用 nc
-      cmd = `nc -z -w ${timeout} ${ip} ${port}`;
-    }
-    
-    await execAsync(cmd);
-    
-    // nc 命令成功返回表示端口开放
-    const isReachable = true;
-    const newStatus = 'online';
-    
-    // 更新数据库中的online_status和last_heartbeat
-    db.prepare('UPDATE servers SET online_status = ?, last_heartbeat = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?')
-      .run(newStatus, req.params.id);
-    
-    res.json({ 
-      success: true, 
-      online: true,
-      ip: ip,
-      port: port,
-      message: `SSH端口(${port})开放`
-    });
-  } catch (error) {
-    // 端口不可达
-    db.prepare('UPDATE servers SET online_status = ?, last_heartbeat = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?')
-      .run('offline', req.params.id);
-    
-    res.json({ 
-      success: true, 
-      online: false,
-      ip: ip,
-      port: 22,
-      message: 'SSH端口不可达'
-    });
-  }
-});
-
-// 批量SSH端口探测（支持环境过滤，高并发）
+// 批量SSH端口探测（支持环境过滤，高并发）- 必须放在 /:id/port-check 之前
 router.post('/batch/port-check', async (req, res) => {
   const db = getDatabase();
   const { environment } = req.body;
   
   // 根据环境查询服务器
-  let query = 'SELECT id, system_ip, manage_ip FROM servers WHERE (system_ip IS NOT NULL AND system_ip != "") OR (manage_ip IS NOT NULL AND manage_ip != "")';
+  let query = 'SELECT id, system_ip, manage_ip FROM servers WHERE (system_ip IS NOT NULL AND system_ip != \'\') OR (manage_ip IS NOT NULL AND manage_ip != \'\')';
   const params: any[] = [];
   
-  if (environment) {
+  if (environment && environment.trim()) {
     query += ' AND environment = ?';
-    params.push(environment);
+    params.push(environment.trim());
   }
   
   const servers = db.prepare(query).all(...params) as any[];
   
   if (servers.length === 0) {
-    return res.json({ success: true, results: [], message: '未找到符合条件的服务器' });
+    return res.json({ success: true, results: [], total: 0, online: 0, offline: 0 });
   }
   
-  const timeout = 3; // 3秒超时
+  // 立即返回，后台执行检测
+  res.json({ 
+    success: true, 
+    results: [],
+    total: servers.length,
+    message: '检测已开始，后台处理中...'
+  });
+  
+  const timeout = 1;
   const port = 22;
   const isWindows = process.platform === 'win32';
   
-  // 单个服务器探测函数
-  const checkServer = async (server: any): Promise<{ id: number; ip: string; online: boolean; message: string }> => {
+  // 后台执行端口检测
+  const checkServer = async (server: any) => {
     const ip = server.system_ip || server.manage_ip;
-    if (!ip) {
-      return { id: server.id, ip: '', online: false, message: '无IP地址' };
-    }
+    if (!ip) return;
     
     try {
       let cmd: string;
@@ -369,40 +314,21 @@ router.post('/batch/port-check', async (req, res) => {
       } else {
         cmd = `nc -z -w ${timeout} ${ip} ${port}`;
       }
-      
       await execAsync(cmd);
-      
-      // 端口开放
       db.prepare('UPDATE servers SET online_status = ?, last_heartbeat = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?')
         .run('online', server.id);
-      
-      return { id: server.id, ip, online: true, message: 'SSH端口开放' };
     } catch (error) {
-      // 端口不可达
       db.prepare('UPDATE servers SET online_status = ?, last_heartbeat = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?')
         .run('offline', server.id);
-      
-      return { id: server.id, ip, online: false, message: 'SSH端口不可达' };
     }
   };
   
-  // 高并发探测（并发数：10）
-  const concurrency = 10;
-  const results: any[] = [];
-  
+  // 高并发检测（100并发）
+  const concurrency = 100;
   for (let i = 0; i < servers.length; i += concurrency) {
     const batch = servers.slice(i, i + concurrency);
-    const batchResults = await Promise.all(batch.map(checkServer));
-    results.push(...batchResults);
+    Promise.all(batch.map(checkServer)).catch(() => {});
   }
-  
-  res.json({ 
-    success: true, 
-    results,
-    total: servers.length,
-    online: results.filter(r => r.online).length,
-    offline: results.filter(r => !r.online).length
-  });
 });
 
 export default router;
