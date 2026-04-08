@@ -114,9 +114,10 @@ export function VersionsPage() {
       setRollbackConfirm('');
       loadData();
       alert(`成功回退到版本 v${rollbackVersion.version_number}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('回退版本失败:', error);
-      alert('回退失败');
+      const errorMsg = error?.response?.data?.message || error?.message || '回退失败';
+      alert(`回退失败: ${errorMsg}`);
     }
   };
 

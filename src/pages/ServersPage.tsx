@@ -443,20 +443,6 @@ export function ServersPage() {
       {/* 筛选栏 */}
       <div className="bg-background-card border border-background-border rounded-xl p-4">
         <div className="flex flex-wrap gap-4">
-          {/* 搜索框 */}
-          <div className="flex-1 min-w-[200px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <input
-                type="text"
-                placeholder="搜索IP、SN号、主机名..."
-                value={filters.keyword}
-                onChange={(e) => setFilters(prev => ({ ...prev, keyword: e.target.value }))}
-                className="w-full bg-background border border-background-border rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-primary"
-              />
-            </div>
-          </div>
-
           {/* 环境筛选 */}
           <select
             value={filters.environment}
@@ -504,6 +490,20 @@ export function ServersPage() {
               <option key={c.cabinet} value={c.cabinet}>{c.cabinet}</option>
             ))}
           </select>
+
+          {/* 搜索框 */}
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                type="text"
+                placeholder="搜索IP、SN号、主机名..."
+                value={filters.keyword}
+                onChange={(e) => setFilters(prev => ({ ...prev, keyword: e.target.value }))}
+                className="w-full bg-background border border-background-border rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-primary"
+              />
+            </div>
+          </div>
         </div>
 
         {/* 批量操作 */}

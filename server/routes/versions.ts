@@ -250,9 +250,14 @@ router.post('/versions/:versionNumber/rollback', (req, res) => {
         tags: snapshotData.tags?.length || 0
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[版本管理] 回退版本失败:', error);
-    res.status(500).json({ success: false, message: '回退版本失败' });
+    const errorMessage = error?.message || '回退版本失败';
+    res.status(500).json({ 
+      success: false, 
+      message: errorMessage,
+      detail: error?.stack || String(error)
+    });
   }
 });
 
