@@ -51,7 +51,7 @@ export function CabinetsPage() {
     }
   };
 
-  // Ping检测所有服务器
+  // SSH端口探测所有服务器（按需点击）
   const pingAllServers = async () => {
     setPinging(true);
     setPingProgress(0);
@@ -70,7 +70,7 @@ export function CabinetsPage() {
           s.id === server.id ? { ...s, online_status: result.online ? 'online' : 'offline' } : s
         ));
       } catch (error) {
-        console.error(`Ping ${server.system_ip} 失败:`, error);
+        console.error(`探测 ${server.system_ip} 失败:`, error);
         setServers(prev => prev.map(s => 
           s.id === server.id ? { ...s, online_status: 'offline' } : s
         ));
@@ -86,13 +86,6 @@ export function CabinetsPage() {
   useEffect(() => {
     fetchServers();
   }, []);
-
-  // 服务器数据加载完成后自动Ping检测
-  useEffect(() => {
-    if (!loading && servers.length > 0) {
-      pingAllServers();
-    }
-  }, [loading]);
 
   // 按机柜分组
   const cabinets = useMemo(() => {
@@ -335,7 +328,7 @@ export function CabinetsPage() {
           className="flex items-center gap-2 px-4 py-1.5 bg-background-card border border-background-border rounded-lg text-slate-300 hover:text-white hover:border-primary/50 transition-colors disabled:opacity-50"
         >
           <RefreshCw size={14} className={pinging ? 'animate-spin' : ''} />
-          {pinging ? `检测中 ${pingProgress}%` : 'Ping检测'}
+          {pinging ? `探测中 ${pingProgress}%` : '端口探测'}
         </button>
       </div>
 

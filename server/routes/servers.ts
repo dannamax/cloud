@@ -270,7 +270,7 @@ router.post('/batch/status', (req, res) => {
   res.json({ success: true });
 });
 
-// Ping检测服务器
+// SSH端口探测服务器（检测22端口）
 router.post('/:id/ping', async (req, res) => {
   const db = getDatabase();
   const server = db.prepare('SELECT * FROM servers WHERE id = ?').get(req.params.id) as any;
@@ -285,41 +285,53 @@ router.post('/:id/ping', async (req, res) => {
   }
   
   try {
-    // 执行ping命令 (Linux/Mac使用-c 1 Windows使用-n 1)
+    // 使用 nc 检测 SSH 端口（22）
     const isWindows = process.platform === 'win32';
-    const cmd = isWindows ? `ping -n 1 -w 1000 ${ip}` : `ping -c 1 -W 1 ${ip}`;
-    const { stdout } = await execAsync(cmd);
+    const timeout = 3; // 3秒超时
+    const port = 22;
     
-    // 判断是否ping通
-    const isReachable = isWindows 
-      ? stdout.toLowerCase().includes('ttl=') || stdout.toLowerCase().includes('ttl=')
-      : stdout.toLowerCase().includes('ttl=');
+    let cmd: string;
+    if (isWindows) {
+      // Windows 使用 PowerShell Test-NetConnection
+      cmd = `powershell -Command "Test-NetConnection -ComputerName ${ip} -Port ${port} -WarningAction SilentlyContinue | Select-Object -ExpandProperty TcpTestSucceeded"`;
+    } else {
+      // Linux/Mac 使用 nc
+      cmd = `nc -z -w ${timeout} ${ip} ${port}`;
+    }
     
-    const newStatus = isReachable ? 'online' : 'offline';
+    await execAsync(cmd);
     
-    // 更新数据库中的online_status
-    db.prepare('UPDATE servers SET online_status = ?, updated_at = datetime(\'now\') WHERE id = ?')
+    // nc 命令成功返回表示端口开放
+    const isReachable = true;
+    const newStatus = 'online';
+    
+    // 更新数据库中的online_status和last_heartbeat
+    db.prepare('UPDATE servers SET online_status = ?, last_heartbeat = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?')
       .run(newStatus, req.params.id);
     
     res.json({ 
       success: true, 
-      online: isReachable,
-      ip: ip
+      online: true,
+      ip: ip,
+      port: port,
+      message: `SSH端口(${port})开放`
     });
   } catch (error) {
-    // ping失败
-    db.prepare('UPDATE servers SET online_status = ?, updated_at = datetime(\'now\') WHERE id = ?')
+    // 端口不可达
+    db.prepare('UPDATE servers SET online_status = ?, last_heartbeat = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?')
       .run('offline', req.params.id);
     
     res.json({ 
       success: true, 
       online: false,
-      ip: ip
+      ip: ip,
+      port: 22,
+      message: 'SSH端口不可达'
     });
   }
 });
 
-// 批量Ping检测
+// 批量SSH端口探测
 router.post('/batch/ping', async (req, res) => {
   const db = getDatabase();
   const { ids } = req.body;
@@ -329,6 +341,9 @@ router.post('/batch/ping', async (req, res) => {
   }
   
   const results: any[] = [];
+  const timeout = 3; // 3秒超时
+  const port = 22;
+  const isWindows = process.platform === 'win32';
   
   for (const id of ids) {
     const server = db.prepare('SELECT * FROM servers WHERE id = ?').get(id) as any;
@@ -336,26 +351,31 @@ router.post('/batch/ping', async (req, res) => {
     
     const ip = server.system_ip || server.manage_ip;
     if (!ip) {
-      results.push({ id, ip: null, online: false });
+      results.push({ id, ip: null, online: false, message: '无IP地址' });
       continue;
     }
     
     try {
-      const isWindows = process.platform === 'win32';
-      const cmd = isWindows ? `ping -n 1 -w 1000 ${ip}` : `ping -c 1 -W 1 ${ip}`;
-      const { stdout } = await execAsync(cmd);
-      const isReachable = stdout.toLowerCase().includes('ttl=');
-      const newStatus = isReachable ? 'online' : 'offline';
+      let cmd: string;
+      if (isWindows) {
+        cmd = `powershell -Command "Test-NetConnection -ComputerName ${ip} -Port ${port} -WarningAction SilentlyContinue | Select-Object -ExpandProperty TcpTestSucceeded"`;
+      } else {
+        cmd = `nc -z -w ${timeout} ${ip} ${port}`;
+      }
       
-      db.prepare('UPDATE servers SET online_status = ?, updated_at = datetime(\'now\') WHERE id = ?')
-        .run(newStatus, id);
+      await execAsync(cmd);
       
-      results.push({ id, ip, online: isReachable });
+      // 端口开放
+      db.prepare('UPDATE servers SET online_status = ?, last_heartbeat = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?')
+        .run('online', id);
+      
+      results.push({ id, ip, online: true, message: 'SSH端口开放' });
     } catch (error) {
-      db.prepare('UPDATE servers SET online_status = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      // 端口不可达
+      db.prepare('UPDATE servers SET online_status = ?, last_heartbeat = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?')
         .run('offline', id);
       
-      results.push({ id, ip, online: false });
+      results.push({ id, ip, online: false, message: 'SSH端口不可达' });
     }
   }
   
