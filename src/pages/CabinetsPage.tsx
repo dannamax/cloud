@@ -51,36 +51,37 @@ export function CabinetsPage() {
     }
   };
 
-  // SSH端口探测所有服务器（按需点击）
+  // SSH端口探测（根据当前选择的环境范围）
   const pingAllServers = async () => {
     setPinging(true);
     setPingProgress(0);
     
-    const cabinetServers = servers.filter(s => s.cabinet && s.system_ip);
-    const total = cabinetServers.length;
-    let processed = 0;
-
-    for (const server of cabinetServers) {
-      if (!server.id) continue;
+    try {
+      // 使用批量探测接口（传递当前选择的环境）
+      const result = await serverApi.batchPing(filterEnvironment || undefined);
       
-      try {
-        const result = await serverApi.ping(server.id);
-        // 更新服务器状态
-        setServers(prev => prev.map(s => 
-          s.id === server.id ? { ...s, online_status: result.online ? 'online' : 'offline' } : s
-        ));
-      } catch (error) {
-        console.error(`探测 ${server.system_ip} 失败:`, error);
-        setServers(prev => prev.map(s => 
-          s.id === server.id ? { ...s, online_status: 'offline' } : s
-        ));
+      // 更新所有服务器状态
+      if (result.results && result.results.length > 0) {
+        const statusMap = new Map(result.results.map(r => [r.id, r.online]));
+        setServers(prev => prev.map(s => {
+          if (statusMap.has(s.id)) {
+            return { ...s, online_status: statusMap.get(s.id) ? 'online' : 'offline' };
+          }
+          return s;
+        }));
       }
       
-      processed++;
-      setPingProgress(Math.round(processed / total * 100));
+      setPingProgress(100);
+      
+      // 显示探测结果
+      if (result.total > 0) {
+        console.log(`探测完成: 总计 ${result.total} 台, 在线 ${result.online} 台, 离线 ${result.offline} 台`);
+      }
+    } catch (error) {
+      console.error('批量探测失败:', error);
+    } finally {
+      setPinging(false);
     }
-    
-    setPinging(false);
   };
 
   useEffect(() => {
