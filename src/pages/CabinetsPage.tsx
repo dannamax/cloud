@@ -38,6 +38,7 @@ export function CabinetsPage() {
   const [pingProgress, setPingProgress] = useState(0);
   const [filterEnvironment, setFilterEnvironment] = useState('');
   const [filterCabinet, setFilterCabinet] = useState('');
+  const [cabinetInputType, setCabinetInputType] = useState<'input' | 'select'>('input');
 
   const fetchServers = async () => {
     setLoading(true);
@@ -144,6 +145,28 @@ export function CabinetsPage() {
     servers.forEach(s => s.environment && envs.add(s.environment));
     return Array.from(envs).sort();
   }, [servers]);
+
+  // 根据选择的环境获取关联的机柜列表（用于下拉选择）
+  const cabinetOptions = useMemo(() => {
+    const cabinets = new Set<string>();
+    servers.forEach(s => {
+      if (s.cabinet && (!filterEnvironment || s.environment === filterEnvironment)) {
+        cabinets.add(s.cabinet.trim());
+      }
+    });
+    return Array.from(cabinets).sort();
+  }, [servers, filterEnvironment]);
+
+  // 环境变化时切换机柜输入类型
+  useEffect(() => {
+    if (filterEnvironment) {
+      setCabinetInputType('select');
+      setFilterCabinet(''); // 清空机柜选择
+    } else {
+      setCabinetInputType('input');
+      setFilterCabinet('');
+    }
+  }, [filterEnvironment]);
 
   // 统计信息
   const stats = useMemo(() => {
@@ -308,13 +331,26 @@ export function CabinetsPage() {
         <div className="flex items-center gap-2">
           <Building2 className="w-4 h-4 text-slate-400" />
           <span className="text-sm text-slate-400">机柜:</span>
-          <input
-            type="text"
-            placeholder="搜索机柜..."
-            value={filterCabinet}
-            onChange={(e) => setFilterCabinet(e.target.value)}
-            className="bg-background-card border border-background-border rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-slate-500 w-40"
-          />
+          {cabinetInputType === 'select' ? (
+            <select
+              value={filterCabinet}
+              onChange={(e) => setFilterCabinet(e.target.value)}
+              className="bg-background-card border border-background-border rounded-lg px-3 py-1.5 text-sm text-white w-40"
+            >
+              <option value="">全部</option>
+              {cabinetOptions.map(cab => (
+                <option key={cab} value={cab}>{cab}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              placeholder="搜索机柜..."
+              value={filterCabinet}
+              onChange={(e) => setFilterCabinet(e.target.value)}
+              className="bg-background-card border border-background-border rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-slate-500 w-40"
+            />
+          )}
         </div>
         <button
           onClick={fetchServers}

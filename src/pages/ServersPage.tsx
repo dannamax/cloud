@@ -23,7 +23,12 @@ import {
   Settings2,
   GripVertical,
   Eye,
-  EyeOff
+  EyeOff,
+  Terminal,
+  History,
+  RotateCcw,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { serverApi, importApi } from '../services/api';
 import type { Server, ServerStats } from '../types';
@@ -55,8 +60,9 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { key: 'status', label: '状态', visible: true, width: 'w-28' },
   { key: 'system_ip', label: 'IP地址', visible: true, width: 'w-32' },
   { key: 'name', label: '主机名', visible: true, width: 'w-32' },
-  { key: 'environment', label: '环境', visible: true, width: 'w-28' },
+  { key: 'role_type', label: '角色类型', visible: true, width: 'w-28' },
   { key: 'role', label: '角色', visible: true, width: 'w-24' },
+  { key: 'environment', label: '环境', visible: true, width: 'w-28' },
   { key: 'cabinet', label: '机柜', visible: true, width: 'w-32' },
   { key: 'brand', label: '品牌', visible: true, width: 'w-24' },
   { key: 'model', label: '型号', visible: false, width: 'w-24' },
@@ -73,6 +79,38 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
 ];
 
 const STORAGE_KEY = 'server_table_columns';
+const SQL_HISTORY_KEY = 'sql_edit_history';
+
+// SQL 变更历史记录
+interface SqlHistoryItem {
+  id: string;
+  timestamp: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+  count: number;
+  sql: string;
+  whereConditions: string;
+  reverted?: boolean;
+}
+
+// 加载 SQL 历史记录
+function loadSqlHistory(): SqlHistoryItem[] {
+  try {
+    const saved = localStorage.getItem(SQL_HISTORY_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {}
+  return [];
+}
+
+// 保存 SQL 历史记录
+function saveSqlHistory(history: SqlHistoryItem[]) {
+  try {
+    localStorage.setItem(SQL_HISTORY_KEY, JSON.stringify(history));
+  } catch (e) {}
+}
 
 // 加载保存的列配置
 function loadColumnConfig(): ColumnConfig[] {
@@ -111,7 +149,86 @@ export function ServersPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showColumnModal, setShowColumnModal] = useState(false);
+  const [showBatchEditModal, setShowBatchEditModal] = useState(false);
+  const [batchEditSql, setBatchEditSql] = useState('');
+  const [batchEditPreview, setBatchEditPreview] = useState<{field: string; value: string; count: number}[]>([]);
   const [columns, setColumns] = useState<ColumnConfig[]>(loadColumnConfig);
+  const [sqlHistory, setSqlHistory] = useState<SqlHistoryItem[]>(loadSqlHistory);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+
+  // 添加到历史记录
+  const addToHistory = (field: string, oldValue: string, newValue: string, count: number, sql: string, whereConditions: string) => {
+    const newHistory: SqlHistoryItem = {
+      id: Date.now().toString(),
+      timestamp: new Date().toLocaleString('zh-CN'),
+      field,
+      oldValue,
+      newValue,
+      count,
+      sql,
+      whereConditions,
+      reverted: false
+    };
+    const updatedHistory = [newHistory, ...sqlHistory].slice(0, 50); // 最多保留50条
+    setSqlHistory(updatedHistory);
+    saveSqlHistory(updatedHistory);
+  };
+
+  // 回退到指定版本
+  const revertToVersion = async (historyItem: SqlHistoryItem) => {
+    if (historyItem.reverted) {
+      alert('该版本已回退过，请勿重复操作');
+      return;
+    }
+
+    const whereStr = historyItem.whereConditions || '无条件';
+    if (!confirm(`确定要回退到以下变更吗？\n\n字段: ${historyItem.field}\n原值: ${historyItem.oldValue}\n目标值: ${historyItem.newValue}\n影响: ${historyItem.count} 台服务器\n条件: ${whereStr}\n\n执行反向操作（将值改回原值）`)) {
+      return;
+    }
+
+    try {
+      // 获取当前所有服务器并筛选符合条件的
+      const serversRes = await serverApi.getAll({});
+      const matchedServers = serversRes.filter((server: Server) => {
+        const serverValue = (server as any)[historyItem.field];
+        return String(serverValue || '').toLowerCase() === historyItem.newValue.toLowerCase();
+      });
+
+      if (matchedServers.length === 0) {
+        alert('没有找到符合条件的服务器，可能数据已变更');
+        return;
+      }
+
+      // 逐个恢复原值
+      const updatePromises = matchedServers.map(server =>
+        serverApi.update(server.id, { [historyItem.field]: historyItem.oldValue })
+      );
+      await Promise.all(updatePromises);
+
+      // 标记原记录为已回退
+      const updatedHistory = sqlHistory.map(item =>
+        item.id === historyItem.id ? { ...item, reverted: true } : item
+      );
+      setSqlHistory(updatedHistory);
+      saveSqlHistory(updatedHistory);
+
+      // 添加回退记录到历史
+      addToHistory(
+        historyItem.field,
+        historyItem.newValue,
+        historyItem.oldValue,
+        matchedServers.length,
+        `SET ${historyItem.field} = '${historyItem.oldValue}'`,
+        historyItem.whereConditions || ''
+      );
+
+      alert(`已成功回退 ${matchedServers.length} 台服务器的 ${historyItem.field} 字段`);
+      fetchServers();
+    } catch (error) {
+      console.error('回退失败:', error);
+      alert('回退操作失败');
+    }
+  };
 
   // 切换列显示
   const toggleColumn = (key: string) => {
@@ -222,6 +339,133 @@ export function ServersPage() {
       setSelectedIds([]);
     } catch (error) {
       console.error('批量删除失败:', error);
+    }
+  };
+
+  // 解析 SQL 风格的批量编辑语句
+  const parseBatchEditSql = (sql: string, selectedServers: Server[]) => {
+    const trimmed = sql.trim().toUpperCase();
+    if (!trimmed.startsWith('UPDATE') && !trimmed.startsWith('SET')) {
+      return { error: '语句必须以 UPDATE 或 SET 开头' };
+    }
+
+    // 提取 SET 部分: SET field = 'value' 或 SET field = "value"
+    const setMatch = trimmed.match(/SET\s+(\w+)\s*=\s*['"]([^'"]*)['"]/);
+    if (!setMatch) {
+      return { error: '请使用正确的格式: SET field = \'value\'' };
+    }
+
+    const field = setMatch[1].toLowerCase();
+    const value = setMatch[2];
+
+    // 验证字段是否可编辑
+    const editableFields = ['name', 'environment', 'role', 'role_type', 'tags', 'remark', 'status', 'cabinet', 'u_position', 'sn', 'brand', 'model', 'cpu', 'memory', 'disk'];
+    if (!editableFields.includes(field)) {
+      return { error: `字段 "${field}" 不可编辑。可编辑字段: ${editableFields.join(', ')}` };
+    }
+
+    // 提取 WHERE 条件
+    const whereConditions: { field: string; value: string }[] = [];
+    const whereMatch = trimmed.match(/WHERE\s+(.+?)(?:;|$)/i);
+    if (whereMatch) {
+      const whereClause = whereMatch[1].toLowerCase();
+      // 解析 AND 条件
+      const andParts = whereClause.split(/\s+and\s+/);
+      for (const part of andParts) {
+        const condMatch = part.match(/(\w+)\s*=\s*['"]([^'"]*)['"]/);
+        if (condMatch) {
+          whereConditions.push({ field: condMatch[1].toLowerCase(), value: condMatch[2] });
+        }
+      }
+    }
+
+    // 筛选符合条件且被选中的服务器
+    let matchedServers = selectedServers;
+    if (whereConditions.length > 0) {
+      matchedServers = selectedServers.filter(server => {
+        return whereConditions.every(cond => {
+          const serverValue = (server as any)[cond.field];
+          return String(serverValue || '').toLowerCase() === cond.value.toLowerCase();
+        });
+      });
+    }
+
+    return {
+      field,
+      value,
+      count: matchedServers.length,
+      servers: matchedServers
+    };
+  };
+
+  // 预览 SQL 执行效果
+  const handleSqlPreview = () => {
+    if (!batchEditSql.trim()) {
+      setBatchEditPreview([]);
+      return;
+    }
+    const result = parseBatchEditSql(batchEditSql, servers);
+    if ('error' in result) {
+      setBatchEditPreview([{ field: (result as any).error || '未知错误', value: '', count: 0 }]);
+    } else {
+      setBatchEditPreview([{ field: result.field, value: result.value, count: result.count }]);
+    }
+  };
+
+  // 执行批量编辑
+  const handleBatchEdit = async () => {
+    if (!batchEditSql.trim() || selectedIds.length === 0) return;
+
+    const selectedServers = servers.filter(s => selectedIds.includes(s.id));
+    const result = parseBatchEditSql(batchEditSql, selectedServers);
+
+    if ('error' in result) {
+      alert(result.error);
+      return;
+    }
+
+    if (!confirm(`确定要将 ${result.count} 台服务器的 "${result.field}" 字段修改为 "${result.value}" 吗？`)) {
+      return;
+    }
+
+    try {
+      // 记录变更前的值
+      const oldValuesMap = new Map<number, string>();
+      result.servers.forEach(server => {
+        oldValuesMap.set(server.id, (server as any)[result.field] || '');
+      });
+
+      // 逐个更新服务器
+      const updatePromises = result.servers.map(server =>
+        serverApi.update(server.id, { [result.field]: result.value })
+      );
+      await Promise.all(updatePromises);
+
+      // 提取 WHERE 条件用于历史记录
+      const whereMatch = batchEditSql.trim().match(/WHERE\s+(.+?)(?:;|$)/i);
+      const whereConditions = whereMatch ? whereMatch[1] : '';
+
+      // 保存到历史记录（只记录第一条的原值作为代表）
+      if (result.servers.length > 0) {
+        const firstServerOldValue = oldValuesMap.get(result.servers[0].id) || '';
+        addToHistory(
+          result.field,
+          firstServerOldValue,
+          result.value,
+          result.count,
+          batchEditSql.trim(),
+          whereConditions
+        );
+      }
+
+      setShowBatchEditModal(false);
+      setBatchEditSql('');
+      setBatchEditPreview([]);
+      setSelectedIds([]);
+      fetchServers();
+    } catch (error) {
+      console.error('批量编辑失败:', error);
+      alert('批量编辑失败');
     }
   };
 
@@ -440,6 +684,26 @@ export function ServersPage() {
         />
       )}
 
+      {/* 批量编辑模态框 */}
+      <BatchEditModal
+        isOpen={showBatchEditModal}
+        onClose={() => {
+          setShowBatchEditModal(false);
+          setBatchEditSql('');
+          setBatchEditPreview([]);
+        }}
+        sql={batchEditSql}
+        setSql={setBatchEditSql}
+        preview={batchEditPreview}
+        onPreview={handleSqlPreview}
+        onExecute={handleBatchEdit}
+        selectedCount={selectedIds.length}
+        history={sqlHistory}
+        onRevert={revertToVersion}
+        showHistoryPanel={showHistoryPanel}
+        onToggleHistory={() => setShowHistoryPanel(!showHistoryPanel)}
+      />
+
       {/* 筛选栏 */}
       <div className="bg-background-card border border-background-border rounded-xl p-4">
         <div className="flex flex-wrap gap-4">
@@ -532,6 +796,13 @@ export function ServersPage() {
             </button>
             <div className="flex-1" />
             <button
+              onClick={() => setShowBatchEditModal(true)}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary/10 text-primary border border-primary/30 rounded-md hover:bg-primary/20 transition-colors"
+            >
+              <Terminal className="w-4 h-4" />
+              SQL 维护
+            </button>
+            <button
               onClick={handleBatchDelete}
               className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-500/10 text-red-400 border border-red-500/30 rounded-md hover:bg-red-500/20 transition-colors"
             >
@@ -603,6 +874,13 @@ export function ServersPage() {
                         {col.key === 'system_ip' && <span className="text-sm text-white font-mono">{server.system_ip || '-'}</span>}
                         {col.key === 'name' && <span className="text-sm text-white">{server.name || '-'}</span>}
                         {col.key === 'environment' && <span className="text-sm text-slate-400">{server.environment || '-'}</span>}
+                        {col.key === 'role_type' && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            server.role_type ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-500/20 text-slate-500'
+                          }`}>
+                            {server.role_type || '-'}
+                          </span>
+                        )}
                         {col.key === 'role' && <span className="text-sm text-slate-400">{server.role || '-'}</span>}
                         {col.key === 'cabinet' && (
                           <span className="text-sm text-slate-400">
@@ -714,6 +992,7 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
         environments: { created: number; existing: number };
         cabinets: { created: number; existing: number };
         tags: { created: number; existing: number };
+        roleTypes: { created: number; existing: number };
         errors: string[];
         message: string;
       };
@@ -725,6 +1004,7 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
           environments: { created: 0, existing: 0 },
           cabinets: { created: 0, existing: 0 },
           tags: { created: 0, existing: 0 },
+          roleTypes: { created: 0, existing: 0 },
           errors: [],
           message: '',
         };
@@ -740,6 +1020,7 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
             importRes.environments.created += sheetRes.environments?.created || 0;
             importRes.cabinets.created += sheetRes.cabinets?.created || 0;
             importRes.tags.created += sheetRes.tags?.created || 0;
+            importRes.roleTypes.created += sheetRes.roleTypes?.created || 0;
             if (sheetRes.errors) {
               importRes.errors.push(...sheetRes.errors);
             }
@@ -871,9 +1152,9 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
                 <h4 className="text-blue-400 font-medium mb-2">导入说明</h4>
                 <ul className="text-sm text-blue-200/80 space-y-1">
                   <li>• 支持从 Excel 文件导入服务器数据</li>
-                  <li>• 自动识别并关联环境、机柜、标签</li>
-                  <li>• 支持的字段：系统IP、管理IP、带外IP、SN号、品牌、型号、配置、机柜、环境、角色、标签等</li>
-                  <li>• 如果环境、机柜、标签不存在，将自动创建</li>
+                  <li>• 自动识别并关联环境、机柜、标签、角色类型</li>
+                  <li>• 支持的字段：系统IP、管理IP、带外IP、SN号、品牌、型号、配置、机柜、环境、角色、角色类型、标签等</li>
+                  <li>• 如果环境、机柜、标签、角色类型不存在，将自动创建</li>
                 </ul>
               </div>
             </div>
@@ -1190,6 +1471,18 @@ function ImportModal({ onClose, onSuccess }: ImportModalProps) {
                     </div>
                   </div>
                 </div>
+                
+                <div className="bg-background rounded-lg p-4 border border-background-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center">
+                      <HardDrive className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-indigo-400">{result.roleTypes?.created || 0}</p>
+                      <p className="text-sm text-slate-400">新建角色类型</p>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               {result.errors?.length > 0 && (
@@ -1496,6 +1789,257 @@ function ColumnConfigModal({ columns, onToggle, onReset, onClose }: ColumnConfig
             className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md transition-colors"
           >
             完成
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 批量编辑模态框组件
+function BatchEditModal({
+  isOpen,
+  onClose,
+  sql,
+  setSql,
+  preview,
+  onPreview,
+  onExecute,
+  selectedCount,
+  history,
+  onRevert,
+  showHistoryPanel,
+  onToggleHistory
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  sql: string;
+  setSql: (v: string) => void;
+  preview: { field: string; value: string; count: number }[];
+  onPreview: () => void;
+  onExecute: () => void;
+  selectedCount: number;
+  history: SqlHistoryItem[];
+  onRevert: (item: SqlHistoryItem) => void;
+  showHistoryPanel: boolean;
+  onToggleHistory: () => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-background-card border border-background-border rounded-xl w-full max-w-4xl max-h-[85vh] flex flex-col">
+        {/* 头部 */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-background-border">
+          <div className="flex items-center gap-3">
+            <Terminal className="w-5 h-5 text-primary" />
+            <div>
+              <h3 className="text-white font-semibold">SQL 数据维护</h3>
+              <p className="text-xs text-slate-400">已选择 {selectedCount} 台服务器</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+
+        {/* 内容 */}
+        <div className="flex-1 overflow-auto p-6 space-y-4">
+          {/* 左侧：SQL 输入区域 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="space-y-4">
+              {/* SQL 输入 */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">输入 SQL 语句</label>
+                <div className="relative">
+                  <textarea
+                    value={sql}
+                    onChange={(e) => setSql(e.target.value)}
+                    onBlur={onPreview}
+                    placeholder={`-- 示例1: 更新选中服务器的标签\nSET tags = 'kvm'\n\n-- 示例2: 更新选中服务器中角色为BGW的标签\nSET tags = 'kvm' WHERE role = 'BGW'\n\n-- 示例3: 更新选中服务器中环境为生产环境的状态\nSET status = '已上架' WHERE environment = '生产环境'\n\n-- 示例4: 更新选中服务器的备注\nSET remark = '已迁移至新机房'`}
+                    className="w-full h-36 bg-slate-900 border border-slate-700 rounded-lg p-4 text-sm text-green-400 font-mono placeholder:text-slate-600 focus:border-primary focus:outline-none resize-none"
+                  />
+                  <div className="absolute bottom-2 right-2 text-xs text-slate-500">
+                    SQL 语法支持 SET field = 'value'
+                  </div>
+                </div>
+              </div>
+
+              {/* 可用字段 */}
+              <div className="bg-slate-800/50 rounded-lg p-4">
+                <h4 className="text-sm text-slate-400 mb-2">可编辑字段</h4>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { field: 'name', label: '主机名' },
+                    { field: 'environment', label: '环境' },
+                    { field: 'role', label: '角色' },
+                    { field: 'role_type', label: '角色类型' },
+                    { field: 'tags', label: '标签' },
+                    { field: 'remark', label: '备注' },
+                    { field: 'status', label: '状态' },
+                    { field: 'cabinet', label: '机柜' },
+                    { field: 'sn', label: 'SN号' },
+                    { field: 'brand', label: '品牌' },
+                    { field: 'model', label: '型号' },
+                    { field: 'cpu', label: 'CPU' },
+                    { field: 'memory', label: '内存' },
+                    { field: 'disk', label: '磁盘' },
+                  ].map(({ field, label }) => (
+                    <code key={field} className="px-2 py-1 bg-slate-700 rounded text-xs text-slate-300" title={label}>
+                      {field}
+                    </code>
+                  ))}
+                </div>
+                <div className="mt-3 pt-3 border-t border-slate-700">
+                  <p className="text-xs text-slate-500">
+                    字段: name=主机名 | environment=环境 | role=角色 | role_type=角色类型 | tags=标签 | remark=备注 | status=状态 | cabinet=机柜 | sn=SN号 | brand=品牌 | model=型号 | cpu=CPU | memory=内存 | disk=磁盘
+                  </p>
+                </div>
+              </div>
+
+              {/* 示例语句 */}
+              <div className="bg-slate-800/50 rounded-lg p-4">
+                <h4 className="text-sm text-slate-400 mb-3">示例语句</h4>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-start gap-2">
+                    <span className="text-slate-500 whitespace-nowrap">1. 更新选中服务器标签:</span>
+                    <code className="px-2 py-0.5 bg-slate-700 rounded text-green-400 font-mono">SET tags = 'kvm'</code>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-slate-500 whitespace-nowrap">2. 按角色条件更新:</span>
+                    <code className="px-2 py-0.5 bg-slate-700 rounded text-green-400 font-mono">SET tags = 'kvm' WHERE role = 'BGW'</code>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-slate-500 whitespace-nowrap">3. 按环境条件更新:</span>
+                    <code className="px-2 py-0.5 bg-slate-700 rounded text-green-400 font-mono">SET status = '已上架' WHERE environment = '生产环境'</code>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-slate-500 whitespace-nowrap">4. 更新备注:</span>
+                    <code className="px-2 py-0.5 bg-slate-700 rounded text-green-400 font-mono">SET remark = '已迁移'</code>
+                  </div>
+                </div>
+              </div>
+
+              {/* 预览结果 */}
+              {preview.length > 0 && (
+                <div className="bg-slate-800/50 rounded-lg p-4">
+                  <h4 className="text-sm text-slate-400 mb-2">预览结果</h4>
+                  {preview[0].field.includes('error') || preview[0].field.includes('字段') ? (
+                    <p className="text-red-400 text-sm">{preview[0].field}</p>
+                  ) : (
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="text-slate-400">将更新</span>
+                      <span className="text-primary font-semibold">{preview[0].count}</span>
+                      <span className="text-slate-400">台服务器的</span>
+                      <code className="px-2 py-0.5 bg-slate-700 rounded text-cyan-400">{preview[0].field}</code>
+                      <span className="text-slate-400">为</span>
+                      <code className="px-2 py-0.5 bg-slate-700 rounded text-green-400">'{preview[0].value}'</code>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 右侧：变更历史 */}
+            <div className="bg-slate-800/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm text-slate-400 flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  变更历史
+                  <span className="text-xs text-slate-500">({history.length} 条)</span>
+                </h4>
+                <button
+                  onClick={onToggleHistory}
+                  className="text-xs text-slate-500 hover:text-white flex items-center gap-1"
+                >
+                  {showHistoryPanel ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  {showHistoryPanel ? '收起' : '展开'}
+                </button>
+              </div>
+
+              {history.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-sm">
+                  暂无变更历史
+                </div>
+              ) : showHistoryPanel ? (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {history.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className={`bg-slate-900/50 rounded-lg p-3 border ${item.reverted ? 'border-slate-700 opacity-60' : 'border-slate-700'}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <code className="px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-xs">
+                              {item.field}
+                            </code>
+                            {item.reverted && (
+                              <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs">
+                                已回退
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-400 space-y-0.5">
+                            <div>
+                              <span className="text-slate-500">{item.oldValue || '(空)'}</span>
+                              <span className="text-slate-600 mx-1">→</span>
+                              <span className="text-green-400">{item.newValue}</span>
+                            </div>
+                            <div className="text-slate-500 truncate">
+                              影响: {item.count} 台 {item.whereConditions ? `| 条件: ${item.whereConditions}` : ''}
+                            </div>
+                            <div className="text-slate-600">
+                              {item.timestamp} {index === 0 && <span className="text-primary ml-1">(最新)</span>}
+                            </div>
+                          </div>
+                        </div>
+                        {!item.reverted && (
+                          <button
+                            onClick={() => onRevert(item)}
+                            className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded text-xs transition-colors flex-shrink-0"
+                            title="一键回退"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            回退
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-slate-500 text-sm">
+                  点击展开查看历史记录
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 底部按钮 */}
+        <div className="p-4 border-t border-background-border flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-slate-400 hover:text-white hover:bg-background-border rounded-md transition-colors"
+          >
+            取消
+          </button>
+          <button
+            onClick={onPreview}
+            className="px-4 py-2 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded-md transition-colors"
+          >
+            预览
+          </button>
+          <button
+            onClick={onExecute}
+            disabled={!sql.trim() || preview.length === 0 || preview[0].field.includes('error')}
+            className="px-4 py-2 text-sm bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            执行更新
           </button>
         </div>
       </div>

@@ -82,6 +82,7 @@ router.post('/import', (req, res) => {
       environments: { created: 0, existing: 0 },
       cabinets: { created: 0, existing: 0 },
       tags: { created: 0, existing: 0 },
+      roleTypes: { created: 0, existing: 0 },
       errors: [] as string[],
     };
     
@@ -108,15 +109,17 @@ router.post('/import', (req, res) => {
         created_at TEXT DEFAULT (datetime('now'))
       )`).run();
       
-      // 收集需要的环境、机柜、标签
+      // 收集需要的环境、机柜、标签、角色类型
       const environments = new Set<string>();
       const cabinets = new Map<string, string>(); // cabinet -> environment
       const allTags = new Set<string>();
+      const allRoleTypes = new Set<string>();
       
       // 兼容多种列名格式
       const envKeys = ['环境', 'environment', 'env', 'ENV', 'Env', '环', '环境名称', '环境名'];
       const cabinetKeys = ['机柜', 'cabinet', 'Cabinet', '机柜名称', '机柜名', '机架'];
       const tagKeys = ['标签', 'tags', 'Tags', 'TAG', 'Tag', '标签列表'];
+      const roleTypeKeys = ['角色类型', 'role_type', 'roleType', '分类', 'category'];
       
       const getFieldValue = (row: any, keys: string[]): string => {
         for (const key of keys) {
@@ -150,6 +153,10 @@ router.post('/import', (req, res) => {
             if (tag) allTags.add(tag);
           });
         }
+        
+        // 获取角色类型
+        const roleType = getFieldValue(row, roleTypeKeys);
+        if (roleType) allRoleTypes.add(roleType);
       }
       
       // 自动创建/关联环境（包括 sheet 名称作为默认环境）
@@ -200,11 +207,32 @@ router.post('/import', (req, res) => {
         }
       }
       
+      // 自动创建/关联角色类型
+      for (const roleTypeName of allRoleTypes) {
+        if (!roleTypeName) continue;
+        const existing = db.prepare('SELECT id FROM role_types WHERE name = ? OR display_name = ?').get(roleTypeName, roleTypeName);
+        if (!existing) {
+          try {
+            // 根据角色类型名称自动匹配或设置颜色
+            const colors = ['#3B82F6', '#22C55E', '#F59E0B', '#8B5CF6', '#06B6D4', '#EC4899', '#64748B'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            // 将中文名称转为拼音风格的标识
+            const nameKey = roleTypeName.toLowerCase().replace(/\s+/g, '_');
+            db.prepare('INSERT INTO role_types (name, display_name, color) VALUES (?, ?, ?)').run(nameKey, roleTypeName, color);
+            result.roleTypes.created++;
+          } catch (e) {
+            result.roleTypes.existing++;
+          }
+        } else {
+          result.roleTypes.existing++;
+        }
+      }
+      
       // 导入服务器数据
       const insertServer = db.prepare(`
         INSERT INTO servers (name, environment, system_ip, manage_ip, oob_ip, mac_address,
-          cabinet, sn, brand, model, cpu, memory, disk, network_card, role, tags, status, remark)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          cabinet, sn, brand, model, cpu, memory, disk, network_card, role, role_type, tags, status, remark)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       
       for (const row of data) {
@@ -236,6 +264,9 @@ router.post('/import', (req, res) => {
         // 解析标签
         const tagsStr = getFieldValue(r, tagKeys);
         
+        // 解析角色类型
+        const roleType = getFieldValue(r, roleTypeKeys);
+        
         // 获取其他字段
         const getOtherField = (keys: string[]) => getFieldValue(r, keys);
         
@@ -256,6 +287,7 @@ router.post('/import', (req, res) => {
             disk,
             getOtherField(['网卡', 'network_card', '网卡信息']),
             getOtherField(['角色', 'role', 'Role', 'server_role', '服务角色']),
+            roleType,
             tagsStr,
             getOtherField(['上架状态', 'status', 'Status', '服务器状态']) || '待上架',
             getOtherField(['备注', 'remark', 'Remark', '备注信息']) || ''
@@ -276,7 +308,7 @@ router.post('/import', (req, res) => {
       success: true, 
       ...result,
       filePath, // 返回文件路径供全量导入使用
-      message: `导入完成：${result.imported} 台服务器，${result.environments.created} 个新环境，${result.cabinets.created} 个新机柜，${result.tags.created} 个新标签`
+      message: `导入完成：${result.imported} 台服务器，${result.environments.created} 个新环境，${result.cabinets.created} 个新机柜，${result.roleTypes.created} 个新角色类型，${result.tags.created} 个新标签`
     });
   } catch (error: any) {
     console.error('导入失败:', error);

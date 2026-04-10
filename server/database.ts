@@ -31,6 +31,7 @@ export function initDatabase() {
       disk TEXT,
       network_card TEXT,
       role TEXT,
+      role_type TEXT,
       tags TEXT,
       status TEXT DEFAULT '待上架',
       online_status TEXT DEFAULT 'unknown',
@@ -161,7 +162,45 @@ export function initDatabase() {
       FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE,
       UNIQUE(environment_id, column_key)
     );
+
+    -- 角色类型管理表（用于角色分类）
+    CREATE TABLE IF NOT EXISTS role_types (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      display_name TEXT NOT NULL,
+      color TEXT DEFAULT '#6366f1',
+      icon TEXT DEFAULT 'Server',
+      sort_order INTEGER DEFAULT 0,
+      description TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- 插入默认角色类型
+    INSERT OR IGNORE INTO role_types (name, display_name, color, icon, sort_order, description) VALUES
+      ('basic', '基础服务', '#3B82F6', 'Globe', 1, 'NTP、DNS、DHCP等基础服务'),
+      ('lb', '负载均衡', '#22C55E', 'GitBranch', 2, 'LB、NGINX、HAProxy等负载均衡服务'),
+      ('storage', '存储服务', '#F59E0B', 'HardDrive', 3, 'MINIO、Ceph、FastDFS等存储服务'),
+      ('middleware', '中间件', '#8B5CF6', 'Database', 4, 'Redis、MySQL、Kafka等中间件'),
+      ('container', '容器服务', '#06B6D4', 'Box', 5, 'K8S、Docker、Harbor等容器服务'),
+      ('app', '业务应用', '#EC4899', 'Layers', 6, 'WEB、API、BGW等业务应用'),
+      ('other', '其他', '#64748B', 'Server', 99, '未分类的角色');
+
+    -- 迁移：如果 servers 表没有 role_type 列，则添加
+    PRAGMA table_info(servers);
   `);
+
+  // 检查并添加 role_type 列（如果不存在）
+  try {
+    const columns = db.prepare("PRAGMA table_info(servers)").all() as { name: string }[];
+    const hasRoleType = columns.some(col => col.name === 'role_type');
+    if (!hasRoleType) {
+      db.exec('ALTER TABLE servers ADD COLUMN role_type TEXT DEFAULT ""');
+      console.log('已为 servers 表添加 role_type 列');
+    }
+  } catch (e) {
+    // 列可能已存在，忽略错误
+  }
 
   // 创建默认管理员账号
   const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');

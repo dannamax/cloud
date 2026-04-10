@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Server, ServerStats, ChangeLog, User, LoginResponse, Settings, Cabinet, Environment, Tag, AuditLog, AuditLogStats, AuditLogResponse } from '../types';
+import type { Server, ServerStats, ChangeLog, User, LoginResponse, Settings, Cabinet, Environment, Tag, AuditLog, AuditLogStats, AuditLogResponse, RoleType } from '../types';
 
 const API_BASE = '/api';
 
@@ -147,6 +147,7 @@ export const importApi = {
       environments: { created: number; existing: number };
       cabinets: { created: number; existing: number };
       tags: { created: number; existing: number };
+      roleTypes: { created: number; existing: number };
       errors: string[];
       message: string;
     }>(`${API_BASE}/import/import`, { filePath, sheetIndex }).then(r => r.data),
@@ -312,4 +313,20 @@ export const versionApi = {
     axios.get<{ success: boolean; from: any; to: any; diff: any }>(`${API_BASE}/versions/compare`, {
       params: { from, to }
     }).then(r => r.data),
+};
+
+// 角色类型API
+export const roleTypeApi = {
+  getAll: () => axios.get<RoleType[]>(`${API_BASE}/role-types`).then(r => r.data),
+
+  getGroupedRoles: () => axios.get<RoleType[]>(`${API_BASE}/role-types/grouped-roles`).then(r => r.data),
+
+  create: (data: Partial<RoleType>) =>
+    axios.post<RoleType>(`${API_BASE}/role-types`, data).then(r => r.data),
+
+  update: (id: number, data: Partial<RoleType>) =>
+    axios.put<RoleType>(`${API_BASE}/role-types/${id}`, data).then(r => r.data),
+
+  delete: (id: number) =>
+    axios.delete(`${API_BASE}/role-types/${id}`).then(r => r.data),
 };

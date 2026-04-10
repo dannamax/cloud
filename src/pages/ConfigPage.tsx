@@ -14,10 +14,11 @@ import {
   Square,
   CheckSquare,
   AlertTriangle,
-  Columns
+  Columns,
+  Tag
 } from 'lucide-react';
-import { cabinetApi, environmentApi, serverApi, customColumnApi, settingsApi, CustomColumn } from '../services/api';
-import type { Cabinet, Environment, Server } from '../types';
+import { cabinetApi, environmentApi, serverApi, customColumnApi, settingsApi, roleTypeApi, CustomColumn } from '../services/api';
+import type { Cabinet, Environment, Server, RoleType } from '../types';
 
 // 基础字段定义（系统字段）
 const BASE_FIELDS = [
@@ -110,6 +111,73 @@ export function ConfigPage() {
   
   // 同步状态
   const [syncing, setSyncing] = useState<'cabinet' | 'environment' | null>(null);
+
+  // 角色类型状态
+  const [roleTypes, setRoleTypes] = useState<RoleType[]>([]);
+  const [roleTypeModal, setRoleTypeModal] = useState<{ open: boolean; data?: RoleType }>({ open: false });
+  const [roleTypeForm, setRoleTypeForm] = useState({
+    name: '',
+    display_name: '',
+    color: '#6366f1',
+    icon: 'Server',
+    sort_order: 0,
+    description: ''
+  });
+
+  // 加载角色类型
+  const loadRoleTypes = async () => {
+    try {
+      const data = await roleTypeApi.getAll();
+      setRoleTypes(data);
+    } catch (error) {
+      console.error('加载角色类型失败:', error);
+    }
+  };
+
+  // 保存角色类型
+  const handleRoleTypeSave = async () => {
+    try {
+      if (roleTypeModal.data?.id) {
+        await roleTypeApi.update(roleTypeModal.data.id, roleTypeForm);
+      } else {
+        await roleTypeApi.create(roleTypeForm);
+      }
+      setRoleTypeModal({ open: false });
+      setRoleTypeForm({ name: '', display_name: '', color: '#6366f1', icon: 'Server', sort_order: 0, description: '' });
+      loadRoleTypes();
+    } catch (error: any) {
+      alert(error.response?.data?.error || '操作失败');
+    }
+  };
+
+  // 删除角色类型
+  const handleRoleTypeDelete = async (id: number) => {
+    if (!confirm('确定要删除该角色类型吗？')) return;
+    try {
+      await roleTypeApi.delete(id);
+      loadRoleTypes();
+    } catch (error: any) {
+      alert(error.response?.data?.error || '删除失败');
+    }
+  };
+
+  // 打开角色类型弹窗
+  const openRoleTypeModal = (rt?: RoleType) => {
+    if (rt) {
+      setRoleTypeForm({
+        name: rt.name,
+        display_name: rt.display_name,
+        color: rt.color,
+        icon: rt.icon,
+        sort_order: rt.sort_order,
+        description: rt.description || ''
+      });
+      setRoleTypeModal({ open: true, data: rt });
+    } else {
+      setRoleTypeForm({ name: '', display_name: '', color: '#6366f1', icon: 'Server', sort_order: 0, description: '' });
+      setRoleTypeModal({ open: true });
+    }
+  };
 
   // 加载自定义列配置
   const loadCustomColumns = async () => {
@@ -213,7 +281,7 @@ export function ConfigPage() {
   useEffect(() => {
     if (activeTab === 'cabinets') {
       loadCabinets();
-    } else {
+    } else if (activeTab === 'environments') {
       loadEnvironments();
       loadCustomColumns();
       loadBaseFieldLabels();
@@ -548,7 +616,110 @@ export function ConfigPage() {
           <Building2 size={16} />
           机柜管理
         </button>
+        <button
+          onClick={() => { setActiveTab('roleTypes'); loadRoleTypes(); }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+            activeTab === 'roleTypes'
+              ? 'bg-primary text-white'
+              : 'text-slate-400 hover:text-white hover:bg-background-card'
+          }`}
+        >
+          <Tag size={16} />
+          角色类型
+        </button>
       </div>
+
+      {/* 角色类型管理 */}
+      {activeTab === 'roleTypes' && (
+        <>
+          {/* 操作栏 */}
+          <div className="flex flex-wrap items-center gap-4">
+            <button
+              onClick={loadRoleTypes}
+              className="flex items-center gap-2 px-3 py-1.5 bg-background-card border border-background-border rounded-lg text-slate-300 hover:text-white"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              刷新
+            </button>
+            <button
+              onClick={() => openRoleTypeModal()}
+              className="flex items-center gap-2 px-3 py-1.5 bg-primary rounded-lg text-white hover:bg-primary/90"
+            >
+              <Plus size={14} />
+              新增角色类型
+            </button>
+          </div>
+
+          {/* 角色类型列表 */}
+          <div className="bg-background-card border border-background-border rounded-xl overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-background-border">
+                <tr>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-slate-400 w-12">颜色</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-slate-400">类型标识</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-slate-400">显示名称</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-slate-400">描述</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-slate-400 w-20">排序</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-slate-400 w-24">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-slate-400">加载中...</td>
+                  </tr>
+                ) : roleTypes.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-slate-400">暂无数据</td>
+                  </tr>
+                ) : (
+                  roleTypes.map(rt => (
+                    <tr key={rt.id} className="border-t border-background-border hover:bg-background-border/50">
+                      <td className="px-4 py-3">
+                        <div
+                          className="w-6 h-6 rounded"
+                          style={{ backgroundColor: rt.color }}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <code className="text-xs bg-background px-2 py-0.5 rounded text-slate-300">{rt.name}</code>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className="px-2 py-0.5 rounded text-xs font-medium"
+                          style={{ backgroundColor: `${rt.color}20`, color: rt.color }}
+                        >
+                          {rt.display_name}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-400 text-sm">{rt.description || '-'}</td>
+                      <td className="px-4 py-3 text-slate-300 text-sm">{rt.sort_order}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => openRoleTypeModal(rt)}
+                            className="p-1 text-slate-400 hover:text-primary"
+                            title="编辑"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleRoleTypeDelete(rt.id)}
+                            className="p-1 text-slate-400 hover:text-red-500"
+                            title="删除"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {activeTab === 'cabinets' && (
         <>
@@ -1561,6 +1732,103 @@ export function ConfigPage() {
               >
                 <Trash2 size={16} />
                 确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 角色类型编辑弹窗 */}
+      {roleTypeModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background-card border border-background-border rounded-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-white">
+                {roleTypeModal.data ? '编辑角色类型' : '新增角色类型'}
+              </h3>
+              <button onClick={() => setRoleTypeModal({ open: false })} className="text-slate-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">
+                  类型标识 {roleTypeModal.data ? '' : '*'}
+                </label>
+                <input
+                  type="text"
+                  value={roleTypeForm.name}
+                  onChange={(e) => setRoleTypeForm(f => ({ ...f, name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }))}
+                  className="w-full bg-background border border-background-border rounded-lg px-3 py-2 text-white"
+                  placeholder="如: basic, middleware, storage"
+                  disabled={!!roleTypeModal.data?.id}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  {roleTypeModal.data ? '类型标识不可修改' : '只能是字母、数字和下划线，将用于仪表盘角色分类'}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">显示名称 *</label>
+                <input
+                  type="text"
+                  value={roleTypeForm.display_name}
+                  onChange={(e) => setRoleTypeForm(f => ({ ...f, display_name: e.target.value }))}
+                  className="w-full bg-background border border-background-border rounded-lg px-3 py-2 text-white"
+                  placeholder="如: 基础服务"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">颜色</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={roleTypeForm.color}
+                    onChange={(e) => setRoleTypeForm(f => ({ ...f, color: e.target.value }))}
+                    className="w-12 h-10 rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={roleTypeForm.color}
+                    onChange={(e) => setRoleTypeForm(f => ({ ...f, color: e.target.value }))}
+                    className="flex-1 bg-background border border-background-border rounded-lg px-3 py-2 text-white"
+                    placeholder="#6366f1"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">描述</label>
+                <textarea
+                  value={roleTypeForm.description}
+                  onChange={(e) => setRoleTypeForm(f => ({ ...f, description: e.target.value }))}
+                  className="w-full bg-background border border-background-border rounded-lg px-3 py-2 text-white resize-none"
+                  rows={2}
+                  placeholder="如: NTP、DNS、DHCP等基础服务"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">排序</label>
+                <input
+                  type="number"
+                  value={roleTypeForm.sort_order}
+                  onChange={(e) => setRoleTypeForm(f => ({ ...f, sort_order: parseInt(e.target.value) || 0 }))}
+                  className="w-full bg-background border border-background-border rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setRoleTypeModal({ open: false })}
+                className="px-4 py-2 text-slate-400 hover:text-white"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleRoleTypeSave}
+                disabled={!roleTypeForm.name || !roleTypeForm.display_name}
+                className="flex items-center gap-2 px-4 py-2 bg-primary rounded-lg text-white hover:bg-primary/90 disabled:opacity-50"
+              >
+                <Check size={16} />
+                保存
               </button>
             </div>
           </div>

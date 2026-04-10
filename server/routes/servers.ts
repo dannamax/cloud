@@ -73,7 +73,35 @@ router.get('/stats', (req, res) => {
     ORDER BY count DESC
     LIMIT 20
   `).all();
-  
+
+  const byRoleAndModel = db.prepare(`
+    SELECT
+      COALESCE(NULLIF(role, ''), '未分配') as role,
+      COALESCE(NULLIF(role_type, ''), 'other') as role_type,
+      COALESCE(CONCAT(brand, ' ', model), '未知') as model_name,
+      COUNT(*) as count
+    FROM servers
+    GROUP BY role, role_type, model_name
+    ORDER BY role, count DESC
+  `).all();
+
+  // 获取按角色类型分组的角色
+  const byRoleType = db.prepare(`
+    SELECT
+      COALESCE(role_type, 'other') as role_type,
+      role,
+      COUNT(*) as count
+    FROM servers
+    WHERE role IS NOT NULL AND role != ''
+    GROUP BY role_type, role
+    ORDER BY role_type, count DESC
+  `).all();
+
+  // 获取所有角色类型
+  const roleTypes = db.prepare('SELECT * FROM role_types ORDER BY sort_order ASC').all();
+
+  const allServers = db.prepare('SELECT * FROM servers').all();
+
   res.json({
     total: total.count,
     online: online.count,
@@ -82,6 +110,10 @@ router.get('/stats', (req, res) => {
     byEnvironment,
     byRole,
     byCabinet,
+    byRoleAndModel,
+    byRoleType,
+    roleTypes,
+    allServers,
   });
 });
 
@@ -103,21 +135,21 @@ router.post('/', (req, res) => {
   const {
     name, environment, system_ip, manage_ip, oob_ip, mac_address,
     cabinet, u_position, u_height, sn, brand, model, cpu, memory, disk, network_card,
-    role, tags, status, remark
+    role, role_type, tags, status, remark
   } = req.body;
-  
+
   const result = db.prepare(`
     INSERT INTO servers (name, environment, system_ip, manage_ip, oob_ip, mac_address,
-      cabinet, u_position, u_height, sn, brand, model, cpu, memory, disk, network_card, role, tags, status, remark)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      cabinet, u_position, u_height, sn, brand, model, cpu, memory, disk, network_card, role, role_type, tags, status, remark)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     name, environment, system_ip, manage_ip, oob_ip, mac_address,
     cabinet, u_position || 0, u_height || 2, sn, brand, model, cpu, memory, disk, network_card,
-    role, tags, status || '待上架', remark
+    role, role_type, tags, status || '待上架', remark
   );
-  
+
   const server = db.prepare('SELECT * FROM servers WHERE id = ?').get(result.lastInsertRowid);
-  
+
   res.json(server);
 });
 
@@ -125,22 +157,22 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   const db = getDatabase();
   const { id, ...updates } = req.body;
-  
+
   const existing = db.prepare('SELECT * FROM servers WHERE id = ?').get(req.params.id) as any;
   if (!existing) {
     return res.status(404).json({ error: '服务器不存在' });
   }
-  
+
   // 构建动态更新语句，只更新提供的字段
   const allowedFields = [
     'name', 'environment', 'system_ip', 'manage_ip', 'oob_ip', 'mac_address',
-    'cabinet', 'u_position', 'u_height', 'sn', 'brand', 'model', 'cpu', 'memory', 
-    'disk', 'network_card', 'role', 'tags', 'status', 'remark'
+    'cabinet', 'u_position', 'u_height', 'sn', 'brand', 'model', 'cpu', 'memory',
+    'disk', 'network_card', 'role', 'role_type', 'tags', 'status', 'remark'
   ];
-  
+
   const setClauses: string[] = [];
   const values: any[] = [];
-  
+
   for (const field of allowedFields) {
     if (updates[field] !== undefined) {
       setClauses.push(`${field} = ?`);
@@ -154,18 +186,18 @@ router.put('/:id', (req, res) => {
       }
     }
   }
-  
+
   if (setClauses.length === 0) {
     return res.json(existing);
   }
-  
+
   setClauses.push("updated_at = datetime('now')");
   values.push(req.params.id);
-  
+
   db.prepare(`UPDATE servers SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
-  
+
   const server = db.prepare('SELECT * FROM servers WHERE id = ?').get(req.params.id);
-  
+
   res.json(server);
 });
 

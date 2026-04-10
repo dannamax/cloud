@@ -13,6 +13,7 @@ import tagsRouter from './routes/tags.js';
 import auditLogsRouter from './routes/auditLogs.js';
 import versionsRouter from './routes/versions.js';
 import customColumnsRouter from './routes/customColumns.js';
+import roleTypesRouter from './routes/roleTypes.js';
 import { auditMiddleware } from './middleware/auditMiddleware.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -57,6 +58,7 @@ app.use('/api/tags', tagsRouter);
 app.use('/api/audit-logs', auditLogsRouter);
 app.use('/api', versionsRouter);
 app.use('/api/custom-columns', customColumnsRouter);
+app.use('/api/role-types', roleTypesRouter);
 
 // 健康检查
 app.get('/api/health', (req, res) => {

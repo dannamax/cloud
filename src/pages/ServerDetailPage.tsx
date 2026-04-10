@@ -14,8 +14,8 @@ import {
   Settings,
   FileText
 } from 'lucide-react';
-import { serverApi, changeLogApi } from '../services/api';
-import type { Server, ChangeLog } from '../types';
+import { serverApi, changeLogApi, roleTypeApi } from '../services/api';
+import type { Server, ChangeLog, RoleType } from '../types';
 
 const statusColors: Record<string, string> = {
   '已上架': 'bg-status-online/20 text-status-online',
@@ -55,6 +55,7 @@ export function ServerDetailPage() {
     after_status: '',
     remark: '',
   });
+  const [roleTypes, setRoleTypes] = useState<RoleType[]>([]);
 
   const fetchData = async () => {
     if (!id || id === 'new') {
@@ -62,14 +63,29 @@ export function ServerDetailPage() {
       return;
     }
     try {
-      const [serverData, logsData] = await Promise.all([
-        serverApi.getById(Number(id)),
-        changeLogApi.getByServer(Number(id)),
+      const serverId = Number(id);
+      
+      // 分别调用，确保错误处理独立
+      const serverData = await serverApi.getById(serverId);
+      
+      // 只有服务器数据获取成功后才获取其他数据
+      const [logsData, roleTypesData] = await Promise.all([
+        changeLogApi.getByServer(serverId),
+        roleTypeApi.getAll(),
       ]);
+      
       setServer(serverData);
       setChangeLogs(logsData);
-    } catch (error) {
+      setRoleTypes(roleTypesData);
+    } catch (error: any) {
       console.error('获取服务器失败:', error);
+      // 根据错误类型设置不同的提示
+      if (error.response?.status === 404) {
+        setServer(null);
+      } else {
+        // 网络或其他错误，也设置为 null 以显示错误状态
+        setServer(undefined as any);
+      }
     } finally {
       setLoading(false);
     }
@@ -97,13 +113,20 @@ export function ServerDetailPage() {
     if (!editData || !id || id === 'new') return;
     setSaving(true);
     try {
-      await serverApi.update(Number(id), editData);
+      // 先更新本地状态，确保用户看到更新后的数据
       setServer(editData);
       setEditing(false);
-      fetchData();
+      
+      // 调用API保存到服务器
+      await serverApi.update(Number(id), editData);
+      
+      // 成功后返回列表页，让用户看到更新后的数据
+      navigate('/servers');
     } catch (error) {
       console.error('保存失败:', error);
-      alert('保存失败');
+      // 保存失败时恢复编辑状态
+      setEditing(true);
+      alert('保存失败，请重试');
     } finally {
       setSaving(false);
     }
@@ -219,6 +242,16 @@ export function ServerDetailPage() {
               />
             </div>
             <div>
+              <label className="block text-sm text-slate-400 mb-2">角色类型</label>
+              <input
+                type="text"
+                value={server?.role_type || ''}
+                onChange={e => setServer(s => s ? { ...s, role_type: e.target.value } : { role_type: e.target.value } as Server)}
+                className="w-full bg-background border border-background-border rounded-lg px-4 py-2 text-white"
+                placeholder="如: basic, middleware, storage"
+              />
+            </div>
+            <div>
               <label className="block text-sm text-slate-400 mb-2">状态</label>
               <select
                 value={server?.status || '待上架'}
@@ -241,13 +274,37 @@ export function ServerDetailPage() {
     );
   }
 
-  if (!server) {
-    return <div className="text-center text-slate-400">服务器不存在</div>;
+  if (server === undefined) {
+    return (
+      <div className="text-center text-slate-400 py-12">
+        <p className="mb-4">加载失败，请检查网络或稍后重试</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+        >
+          刷新页面
+        </button>
+      </div>
+    );
+  }
+
+  if (server === null) {
+    return (
+      <div className="text-center text-slate-400 py-12">
+        <p className="mb-4">服务器不存在或已被删除</p>
+        <button 
+          onClick={() => navigate('/servers')} 
+          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+        >
+          返回列表
+        </button>
+      </div>
+    );
   }
 
   const currentData = editing ? editData : server;
 
-  const renderInfoTable = (fields: { label: string; key: string; type?: 'select' }[]) => (
+  const renderInfoTable = (fields: { label: string; key: string; type?: 'select' | 'role_type_select' }[]) => (
     <table className="w-full">
       <tbody>
         {fields.map((field, index) => (
@@ -255,7 +312,7 @@ export function ServerDetailPage() {
             <td className="py-3 pr-4 text-slate-400 whitespace-nowrap w-1/4">{field.label}</td>
             <td className="py-3 text-white">
               {editing ? (
-                field.type === 'select' ? (
+                field.type === 'select' || field.type === 'role_type_select' ? (
                   <select
                     value={(currentData as any)[field.key] || ''}
                     onChange={(e) => updateField(field.key, e.target.value)}
@@ -269,6 +326,14 @@ export function ServerDetailPage() {
                         <option value="异动回">异动回</option>
                       </>
                     )}
+                    {field.key === 'role_type' && (
+                      <>
+                        <option value="">-- 请选择角色类型 --</option>
+                        {roleTypes.map(rt => (
+                          <option key={rt.id} value={rt.name}>{rt.display_name}</option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 ) : (
                   <input
@@ -279,7 +344,11 @@ export function ServerDetailPage() {
                   />
                 )
               ) : (
-                (currentData as any)[field.key] || '-'
+                field.key === 'role_type' && (currentData as any)[field.key] ? (
+                  roleTypes.find(rt => rt.name === (currentData as any)[field.key])?.display_name || (currentData as any)[field.key]
+                ) : (
+                  (currentData as any)[field.key] || '-'
+                )
               )}
             </td>
           </tr>
@@ -423,6 +492,7 @@ export function ServerDetailPage() {
                     { label: '型号', key: 'model' },
                     { label: '环境', key: 'environment' },
                     { label: '角色', key: 'role' },
+                    { label: '角色类型', key: 'role_type', type: 'role_type_select' },
                     { label: '标签', key: 'tags' },
                   ])}
                 </div>

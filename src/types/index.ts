@@ -17,6 +17,7 @@ export interface Server {
   disk: string;
   network_card: string;
   role: string;
+  role_type: string;
   tags: string;
   status: '已上架' | '待上架' | '异动中' | '异动回';
   online_status: 'online' | 'offline' | 'unknown';
@@ -34,6 +35,21 @@ export interface ServerStats {
   byEnvironment: { environment: string; count: number }[];
   byRole: { role: string; count: number }[];
   byCabinet: { cabinet: string; count: number }[];
+  byRoleAndModel: { role: string; role_type: string; model_name: string; count: number }[];
+  byRoleType: { role_type: string; role: string; count: number }[];
+  roleTypes: RoleType[];
+  allServers: any[];
+}
+
+export interface RoleType {
+  id: number;
+  name: string;
+  display_name: string;
+  color: string;
+  icon: string;
+  sort_order: number;
+  description: string;
+  roles?: { role: string; count: number }[];
 }
 
 export interface ChangeLog {
