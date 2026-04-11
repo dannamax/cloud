@@ -12,7 +12,7 @@ import {
   X,
   Monitor
 } from 'lucide-react';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { serverApi, changeLogApi, environmentApi, cabinetApi } from '../services/api';
 import type { ServerStats, ChangeLog } from '../types';
 
@@ -138,32 +138,15 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         {/* 左侧（3列）- 角色-机型分布 */}
         <div className="xl:col-span-3 space-y-6">
-          {/* 角色-机型分布 */}
+          {/* 角色-机型分布 - 热力图矩阵视图 */}
           <div className="bg-background-card border border-background-border rounded-xl p-5">
-            <h2 className="text-lg font-semibold text-white mb-4">角色-机型分布</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">角色-机型分布</h2>
+              <span className="text-xs text-slate-500">点击单元格查看服务器详情</span>
+            </div>
             {(() => {
-              // 计算角色-机型分布数据
-              const roleModelData = stats?.byRoleAndModel && stats.byRoleAndModel.length > 0
-                ? stats.byRoleAndModel
-                : (stats?.allServers ? (() => {
-                    const map = new Map<string, Map<string, number>>();
-                    stats.allServers.forEach((s: any) => {
-                      const role = s.role || '未分配';
-                      const model = `${s.brand || ''} ${s.model || ''}`.trim() || '未知';
-                      if (!map.has(role)) map.set(role, new Map());
-                      const m = map.get(role)!;
-                      m.set(model, (m.get(model) || 0) + 1);
-                    });
-                    const result: { role: string; model_name: string; count: number }[] = [];
-                    map.forEach((models, role) => {
-                      models.forEach((count, model_name) => {
-                        result.push({ role, model_name, count });
-                      });
-                    });
-                    return result;
-                  })() : []);
-
-              if (!roleModelData || roleModelData.length === 0) {
+              // 构建数据：从 allServers 聚合
+              if (!stats?.allServers || stats.allServers.length === 0) {
                 return (
                   <div className="h-64 flex items-center justify-center text-slate-500">
                     暂无数据
@@ -171,97 +154,184 @@ export function DashboardPage() {
                 );
               }
 
-              // 按角色分组
-              const roleGroups = new Map<string, { model_name: string; count: number }[]>();
-              roleModelData.forEach((item) => {
-                if (!roleGroups.has(item.role)) {
-                  roleGroups.set(item.role, []);
-                }
-                roleGroups.get(item.role)!.push({ model_name: item.model_name, count: item.count });
+              // 聚合机型-角色数据
+              const modelRoleMap = new Map<string, Map<string, number>>();
+              const roleSet = new Set<string>();
+              const modelSet = new Set<string>();
+              
+              stats.allServers.forEach((s: any) => {
+                const role = s.role || '未分配';
+                const model = `${s.brand || ''} ${s.model || ''}`.trim() || '未知';
+                roleSet.add(role);
+                modelSet.add(model);
+                
+                if (!modelRoleMap.has(model)) modelRoleMap.set(model, new Map());
+                const roleMap = modelRoleMap.get(model)!;
+                roleMap.set(role, (roleMap.get(role) || 0) + 1);
               });
 
-              // 计算最大数量用于进度条
-              const maxCount = Math.max(...roleModelData.map(i => i.count));
-              const totalRoles = roleGroups.size;
-              const totalServers = roleModelData.reduce((sum, i) => sum + i.count, 0);
+              // 排序：机型按总数降序，角色按总数降序
+              const modelTotals = new Map<string, number>();
+              modelRoleMap.forEach((roleMap, model) => {
+                let total = 0;
+                roleMap.forEach(count => total += count);
+                modelTotals.set(model, total);
+              });
+
+              const sortedModels = Array.from(modelTotals.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 12)  // 最多显示12种机型
+                .map(([m]) => m);
+
+              // 找出最大数量用于计算颜色深度
+              let maxCount = 0;
+              modelRoleMap.forEach(roleMap => {
+                roleMap.forEach(count => {
+                  if (count > maxCount) maxCount = count;
+                });
+              });
+
+              // 计算每种机型的角色分布
+              const getModelDistribution = (model: string) => {
+                const roleMap = modelRoleMap.get(model) || new Map();
+                const dist: { role: string; count: number; percent: number }[] = [];
+                let total = 0;
+                roleMap.forEach((count, role) => {
+                  total += count;
+                  dist.push({ role, count, percent: 0 });
+                });
+                dist.forEach(d => {
+                  d.percent = total > 0 ? Math.round((d.count / total) * 100) : 0;
+                });
+                return { dist: dist.sort((a, b) => b.count - a.count), total };
+              };
+
+              // 颜色渐变函数
+              const getHeatColor = (count: number, total: number) => {
+                if (count === 0 || total === 0) return 'bg-slate-800/30';
+                const intensity = count / maxCount;
+                if (intensity > 0.7) return 'bg-primary text-white';
+                if (intensity > 0.4) return 'bg-primary/70 text-white';
+                if (intensity > 0.2) return 'bg-primary/40 text-white';
+                return 'bg-primary/20 text-slate-300';
+              };
+
+              const getBarColor = (count: number, total: number) => {
+                if (total === 0) return 'bg-slate-700';
+                const ratio = count / total;
+                if (ratio > 0.6) return 'bg-green-500';
+                if (ratio > 0.3) return 'bg-blue-500';
+                if (ratio > 0.1) return 'bg-yellow-500';
+                return 'bg-slate-500';
+              };
 
               return (
                 <div className="space-y-4">
-                  {/* 统计摘要 */}
-                  <div className="flex items-center gap-2 text-sm text-slate-400 mb-4">
-                    <span className="px-2 py-1 rounded bg-slate-800 text-slate-300">
-                      共 {totalRoles} 种角色，{totalServers} 台服务器
-                    </span>
+                  {/* 图例 */}
+                  <div className="flex items-center gap-4 text-xs text-slate-400">
+                    <span>图例：占比</span>
+                    <div className="flex items-center gap-1">
+                      <div className="w-4 h-4 rounded bg-slate-700"></div>
+                      <span>&lt;10%</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-4 h-4 rounded bg-primary/20"></div>
+                      <span>10-20%</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-4 h-4 rounded bg-primary/40"></div>
+                      <span>20-40%</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-4 h-4 rounded bg-primary/70"></div>
+                      <span>40-70%</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-4 h-4 rounded bg-primary"></div>
+                      <span>&gt;70%</span>
+                    </div>
                   </div>
 
-                  {/* 角色卡片网格 - 3列布局 */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {Array.from(roleGroups.entries()).map(([role, models]) => {
-                      const totalCount = models.reduce((sum, m) => sum + m.count, 0);
-                      // 按数量排序
-                      const sortedModels = models.sort((a, b) => b.count - a.count);
+                  {/* 机型卡片列表 - 堆叠条形图形式 */}
+                  <div className="space-y-3">
+                    {sortedModels.map(model => {
+                      const { dist, total } = getModelDistribution(model);
+                      if (total === 0) return null;
                       
                       return (
                         <div
-                          key={role}
-                          className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50 hover:border-primary/30 transition-colors"
+                          key={model}
+                          className="group cursor-pointer"
+                          onClick={() => {
+                            setSelectedRole({ role: '', model_name: model });
+                            setRoleDetailModal(true);
+                          }}
                         >
-                          {/* 角色标题和总数 */}
-                          <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-white font-semibold truncate flex-1 mr-2">{role}</h3>
-                            <span
-                              onClick={() => {
-                                setSelectedRole({ role, model_name: '' });
-                                setRoleDetailModal(true);
-                              }}
-                              className="text-primary text-sm font-medium cursor-pointer hover:text-primary/80 whitespace-nowrap"
-                            >
-                              共 {totalCount} 台
-                            </span>
-                          </div>
-                          
-                          {/* 机型列表 */}
-                          <div className="space-y-2">
-                            {sortedModels.slice(0, 3).map((model, idx) => {
-                              const percent = maxCount > 0 ? Math.round((model.count / maxCount) * 100) : 0;
-                              return (
-                                <div key={idx} className="group">
+                          <div className="flex items-center mb-2">
+                            <div className="w-40 text-sm text-slate-300 truncate pr-3" title={model}>
+                              {model}
+                            </div>
+                            <div className="flex-1 h-8 bg-slate-800/50 rounded-lg overflow-hidden flex">
+                              {dist.map((item, idx) => {
+                                const width = (item.count / total) * 100;
+                                return (
                                   <div
-                                    onClick={() => {
-                                      setSelectedRole({ role, model_name: model.model_name });
+                                    key={item.role}
+                                    className={`h-full flex items-center justify-center text-xs font-medium transition-all hover:brightness-125 ${getHeatColor(item.count, total)}`}
+                                    style={{ width: `${width}%`, minWidth: width > 0 ? '24px' : '0' }}
+                                    title={`${item.role}: ${item.count}台 (${item.percent}%)`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedRole({ role: item.role, model_name: model });
                                       setRoleDetailModal(true);
                                     }}
-                                    className="flex items-center justify-between text-sm mb-1 cursor-pointer"
                                   >
-                                    <span className="text-slate-400 truncate flex-1 mr-3 hover:text-primary transition-colors" title={model.model_name}>
-                                      {model.model_name}
-                                    </span>
-                                    <span className="text-slate-300 font-medium">{model.count}</span>
+                                    {width > 8 ? item.count : ''}
                                   </div>
-                                  <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-gradient-to-r from-primary to-blue-400 rounded-full transition-all"
-                                      style={{ width: `${percent}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                            {sortedModels.length > 3 && (
-                              <div className="text-xs text-slate-500 text-center pt-2">
-                                还有 {sortedModels.length - 3} 个机型
+                                );
+                              })}
+                            </div>
+                            <div className="w-16 text-right text-sm text-slate-400 pl-3">
+                              {total}台
+                            </div>
+                          </div>
+                          {/* 角色标签 */}
+                          <div className="flex items-center gap-2 ml-40">
+                            {dist.slice(0, 5).map((item, idx) => (
+                              <div
+                                key={item.role}
+                                className="flex items-center gap-1 text-xs"
+                              >
+                                <div className={`w-2 h-2 rounded-full ${getBarColor(item.count, total)}`}></div>
+                                <span className="text-slate-500">{item.role}</span>
+                                <span className="text-slate-400">({item.percent}%)</span>
                               </div>
+                            ))}
+                            {dist.length > 5 && (
+                              <span className="text-xs text-slate-500">+{dist.length - 5}个角色</span>
                             )}
                           </div>
                         </div>
                       );
                     })}
                   </div>
+
+                  {/* 底部统计 */}
+                  <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-sm">
+                    <span className="text-slate-500">
+                      共 {sortedModels.length} 种机型，覆盖 {stats.allServers.length} 台服务器
+                    </span>
+                    <span
+                      className="text-primary hover:text-primary/80 cursor-pointer"
+                      onClick={() => navigate('/servers')}
+                    >
+                      查看全部服务器 →
+                    </span>
+                  </div>
                 </div>
               );
             })()}
           </div>
-
         </div>
 
         {/* 右侧（1列）- 环境分布 + 近期变更 */}
@@ -383,9 +453,12 @@ export function DashboardPage() {
               <div className="flex items-center gap-3">
                 <Monitor className="w-5 h-5 text-primary" />
                 <div>
-                  <h3 className="text-white font-semibold">{selectedRole.role}</h3>
+                  <h3 className="text-white font-semibold">
+                    {selectedRole.role ? `角色: ${selectedRole.role}` : '所有角色'}
+                    {selectedRole.model_name && ` / 机型: ${selectedRole.model_name}`}
+                  </h3>
                   <p className="text-sm text-slate-400">
-                    {selectedRole.model_name || '全部机型'}
+                    {selectedRole.role && selectedRole.model_name ? '筛选条件' : selectedRole.model_name ? '查看该机型所有服务器' : '查看该角色所有服务器'}
                   </p>
                 </div>
               </div>
@@ -404,17 +477,16 @@ export function DashboardPage() {
             <div className="flex-1 overflow-auto p-6">
               {(() => {
                 // 从 allServers 筛选符合条件的服务器
-                // model_name为空表示查看整个角色，否则只看特定机型
                 const servers = stats?.allServers?.filter((s: any) => {
-                  const role = s.role || '未分配';
-                  if (selectedRole.model_name) {
-                    // 查看特定机型
-                    const model = `${s.brand || ''} ${s.model || ''}`.trim() || '未知';
-                    return role === selectedRole.role && model === selectedRole.model_name;
-                  } else {
-                    // 查看整个角色
-                    return role === selectedRole.role;
-                  }
+                  const serverRole = s.role || '未分配';
+                  const serverModel = `${s.brand || ''} ${s.model || ''}`.trim() || '未知';
+                  
+                  // 机型筛选
+                  const matchModel = !selectedRole.model_name || serverModel === selectedRole.model_name;
+                  // 角色筛选（当role不为空时才筛选角色）
+                  const matchRole = !selectedRole.role || serverRole === selectedRole.role;
+                  
+                  return matchModel && matchRole;
                 }) || [];
 
                 if (servers.length === 0) {
@@ -474,11 +546,22 @@ export function DashboardPage() {
             </div>
 
             {/* 模态框底部 */}
-            <div className="px-6 py-3 border-t border-background-border text-sm text-slate-400">
-              共 {stats?.allServers?.filter((s: any) => {
-                const role = s.role || '未分配';
-                return role === selectedRole.role;
-              }).length || 0} 台服务器
+            <div className="px-6 py-3 border-t border-background-border text-sm text-slate-400 flex items-center justify-between">
+              <span>
+                共 {stats?.allServers?.filter((s: any) => {
+                  const serverRole = s.role || '未分配';
+                  const serverModel = `${s.brand || ''} ${s.model || ''}`.trim() || '未知';
+                  const matchModel = !selectedRole.model_name || serverModel === selectedRole.model_name;
+                  const matchRole = !selectedRole.role || serverRole === selectedRole.role;
+                  return matchModel && matchRole;
+                }).length || 0} 台服务器
+              </span>
+              <button
+                onClick={() => navigate('/servers')}
+                className="text-primary hover:text-primary/80"
+              >
+                跳转至服务器页面 →
+              </button>
             </div>
           </div>
         </div>
