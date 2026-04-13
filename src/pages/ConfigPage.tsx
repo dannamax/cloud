@@ -31,7 +31,7 @@ const BASE_FIELDS = [
 ];
 
 export function ConfigPage() {
-  const [activeTab, setActiveTab] = useState<'environments' | 'cabinets'>('environments');
+  const [activeTab, setActiveTab] = useState<'environments' | 'cabinets' | 'roleTypes'>('environments');
   const [loading, setLoading] = useState(false);
   
   // 基础字段显示名称（用户可自定义）
