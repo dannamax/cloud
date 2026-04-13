@@ -217,6 +217,7 @@ export function initDatabase() {
     { key: 'offline_threshold', value: '600', description: '离线告警阈值（秒）' },
     { key: 'system_name', value: 'CMDB', description: '系统名称（侧边栏显示）' },
     { key: 'platform_title', value: '研发环境服务器管理平台', description: '平台标题（顶部显示）' },
+    { key: 'env_base_field_labels', value: '{"code":"架构","description":"说明"}', description: '环境基础字段标签配置' },
   ];
   
   const insertSetting = db.prepare(`
@@ -225,6 +226,15 @@ export function initDatabase() {
   
   for (const s of settings) {
     insertSetting.run(s.key, s.value, s.description);
+  }
+
+  // 更新现有设置的描述（防止描述为空）
+  const updateDescription = db.prepare(`
+    UPDATE settings SET description = ? WHERE key = ? AND (description IS NULL OR description = '')
+  `);
+  
+  for (const s of settings) {
+    updateDescription.run(s.description, s.key);
   }
 
   console.log('数据库初始化完成');
