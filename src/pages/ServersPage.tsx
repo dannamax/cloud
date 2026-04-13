@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Search,
   Plus,
@@ -54,6 +53,15 @@ interface ColumnConfig {
   label: string;
   visible: boolean;
   width?: string;
+}
+
+// 筛选状态类型
+interface FilterState {
+  environment: string;
+  status: string;
+  role: string;
+  cabinet: string;
+  keyword: string;
 }
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
@@ -137,17 +145,9 @@ function saveColumnConfig(config: ColumnConfig[]) {
 }
 
 export function ServersPage() {
-  const navigate = useNavigate();
   const { servers, setServers, serverStats, setServerStats } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<ServerStats | null>(null);
-  const [filters, setFilters] = useState({
-    environment: '',
-    status: '',
-    role: '',
-    cabinet: '',
-    keyword: '',
-  });
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showColumnModal, setShowColumnModal] = useState(false);
@@ -250,8 +250,35 @@ export function ServersPage() {
   // 可见列
   const visibleColumns = columns.filter(col => col.visible);
 
-  // 从 URL 参数初始化 filters
-  const [searchParams] = useSearchParams();
+  // 从 URL 参数获取 filters
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const hasUrlParams = searchParams.toString().length > 0;
+
+  // 提取 URL 参数
+  const urlStatus = searchParams.get('status') || '';
+  const urlEnvironment = searchParams.get('environment') || '';
+  const urlRole = searchParams.get('role') || '';
+
+  // 内部 filters 状态（仅在非 URL 模式时使用）
+  const [internalFilters, setInternalFilters] = useState({
+    environment: '',
+    status: '',
+    role: '',
+    cabinet: '',
+    keyword: '',
+  });
+
+  // 如果有 URL 参数，使用 URL 参数；否则使用内部状态
+  const filters = hasUrlParams
+    ? { environment: urlEnvironment, status: urlStatus, role: urlRole, cabinet: '', keyword: '' }
+    : internalFilters;
+
+  // 设置 filters 的包装函数（手动设置时清除 URL 参数）
+  const setFilters = useCallback((updater: any) => {
+    setSearchParams({}); // 清除 URL 参数
+    setInternalFilters((prev: typeof internalFilters) => typeof updater === 'function' ? updater(prev) : updater);
+  }, [setSearchParams]);
 
   // 使用 useCallback 确保 fetchServers 总是使用最新的 filters
   const fetchServers = useCallback(async () => {
@@ -271,25 +298,22 @@ export function ServersPage() {
     }
   }, [filters]);
 
-  // 监听 URL 参数变化来更新 filters
+  // 当 URL 参数变化时，获取服务器
+  const prevUrlRef = useRef('');
   useEffect(() => {
-    const status = searchParams.get('status');
-    const env = searchParams.get('environment');
-    const role = searchParams.get('role');
+    const currentUrl = searchParams.toString();
+    if (currentUrl !== prevUrlRef.current) {
+      prevUrlRef.current = currentUrl;
+      fetchServers();
+    }
+  }, [searchParams, fetchServers]);
 
-    setFilters({
-      environment: env || '',
-      status: status || '',
-      role: role || '',
-      cabinet: '',
-      keyword: '',
-    });
-  }, [searchParams]);
-
-  // filters 变化时调用 fetchServers
+  // 内部 filters 变化时获取服务器
   useEffect(() => {
-    fetchServers();
-  }, [fetchServers]);
+    if (!hasUrlParams) {
+      fetchServers();
+    }
+  }, [internalFilters, hasUrlParams, fetchServers]);
 
   const environments = useMemo(() => 
     stats?.byEnvironment?.map(e => e.environment) || [], 
@@ -317,11 +341,11 @@ export function ServersPage() {
 
   const handleCategoryClick = (type: 'environment' | 'role' | 'status', value: string) => {
     if (type === 'environment') {
-      setFilters(prev => ({ ...prev, environment: prev.environment === value ? '' : value }));
+      setFilters((prev: FilterState) => ({ ...prev, environment: prev.environment === value ? '' : value }));
     } else if (type === 'role') {
-      setFilters(prev => ({ ...prev, role: prev.role === value ? '' : value }));
+      setFilters((prev: FilterState) => ({ ...prev, role: prev.role === value ? '' : value }));
     } else if (type === 'status') {
-      setFilters(prev => ({ ...prev, status: prev.status === value ? '' : value }));
+      setFilters((prev: FilterState) => ({ ...prev, status: prev.status === value ? '' : value }));
     }
   };
 
@@ -499,7 +523,7 @@ export function ServersPage() {
           {/* 概览统计卡片 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div 
-              onClick={() => setFilters(prev => ({ ...prev, environment: '', status: '', role: '' }))}
+              onClick={() => setFilters((prev: FilterState) => ({ ...prev, environment: '', status: '', role: '' }))}
               className="bg-background-card border border-background-border rounded-xl p-4 hover:border-primary/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -513,7 +537,7 @@ export function ServersPage() {
               </div>
             </div>
             <div 
-              onClick={() => setFilters(prev => ({ ...prev, environment: '', role: '' }))}
+              onClick={() => setFilters((prev: FilterState) => ({ ...prev, environment: '', role: '' }))}
               className="bg-background-card border border-background-border rounded-xl p-4 hover:border-status-online/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -527,7 +551,7 @@ export function ServersPage() {
               </div>
             </div>
             <div 
-              onClick={() => setFilters(prev => ({ ...prev, environment: '', role: '' }))}
+              onClick={() => setFilters((prev: FilterState) => ({ ...prev, environment: '', role: '' }))}
               className="bg-background-card border border-background-border rounded-xl p-4 hover:border-status-offline/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -625,7 +649,7 @@ export function ServersPage() {
                 {categoryStats.cabinets.slice(0, 10).map((item) => (
                   <button
                     key={item.cabinet}
-                    onClick={() => setFilters(prev => ({ ...prev, cabinet: prev.cabinet === item.cabinet ? '' : item.cabinet }))}
+                    onClick={() => setFilters((prev: FilterState) => ({ ...prev, cabinet: prev.cabinet === item.cabinet ? '' : item.cabinet }))}
                     className={`px-2 py-1 rounded-md text-xs whitespace-nowrap transition-colors ${
                       filters.cabinet === item.cabinet
                         ? 'bg-amber-500 text-white'
@@ -732,7 +756,7 @@ export function ServersPage() {
           {/* 环境筛选 */}
           <select
             value={filters.environment}
-            onChange={(e) => setFilters(prev => ({ ...prev, environment: e.target.value }))}
+            onChange={(e) => setFilters((prev: FilterState) => ({ ...prev, environment: e.target.value }))}
             className="bg-background border border-background-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
           >
             <option value="">全部环境</option>
@@ -744,7 +768,7 @@ export function ServersPage() {
           {/* 状态筛选 */}
           <select
             value={filters.status}
-            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+            onChange={(e) => setFilters((prev: FilterState) => ({ ...prev, status: e.target.value }))}
             className="bg-background border border-background-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
           >
             <option value="">全部状态</option>
@@ -762,7 +786,7 @@ export function ServersPage() {
           {/* 角色筛选 */}
           <select
             value={filters.role}
-            onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
+            onChange={(e) => setFilters((prev: FilterState) => ({ ...prev, role: e.target.value }))}
             className="bg-background border border-background-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
           >
             <option value="">全部角色</option>
@@ -774,7 +798,7 @@ export function ServersPage() {
           {/* 机柜筛选 */}
           <select
             value={filters.cabinet}
-            onChange={(e) => setFilters(prev => ({ ...prev, cabinet: e.target.value }))}
+            onChange={(e) => setFilters((prev: FilterState) => ({ ...prev, cabinet: e.target.value }))}
             className="bg-background border border-background-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
           >
             <option value="">全部机柜</option>
@@ -791,7 +815,7 @@ export function ServersPage() {
                 type="text"
                 placeholder="搜索IP、SN号、主机名..."
                 value={filters.keyword}
-                onChange={(e) => setFilters(prev => ({ ...prev, keyword: e.target.value }))}
+                onChange={(e) => setFilters((prev: FilterState) => ({ ...prev, keyword: e.target.value }))}
                 className="w-full bg-background border border-background-border rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-primary"
               />
             </div>
