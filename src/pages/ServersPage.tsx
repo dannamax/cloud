@@ -269,29 +269,25 @@ export function ServersPage() {
 
   // 从 URL 参数初始化 filters
   const [searchParams] = useSearchParams();
-  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     const status = searchParams.get('status');
     const env = searchParams.get('environment');
     const role = searchParams.get('role');
 
-    if (!initialized) {
+    if (status || env || role) {
       setFilters(prev => ({
         ...prev,
         status: status || prev.status,
         environment: env || prev.environment,
         role: role || prev.role,
       }));
-      setInitialized(true);
     }
-  }, [searchParams, initialized]);
+  }, []); // 仅在挂载时执行一次
 
   useEffect(() => {
-    if (initialized) {
-      fetchServers();
-    }
-  }, [filters, initialized]);
+    fetchServers();
+  }, [filters]);
 
   const environments = useMemo(() => 
     stats?.byEnvironment?.map(e => e.environment) || [], 

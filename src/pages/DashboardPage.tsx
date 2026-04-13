@@ -686,12 +686,13 @@ export function DashboardPage() {
                   // 角色筛选逻辑
                   let matchRole = true;
                   if (selectedRole.role) {
-                    // 如果显示的角色包含子角色（如 "DNS/LB/MySQL"），提取所有子角色
-                    const roleParts = selectedRole.role.split('/');
-                    // 获取服务器角色的基础角色（第一个 / 前的部分）
-                    const serverBaseRole = serverRole.split('/')[0];
-                    // 检查服务器的基础角色是否在角色列表中
-                    matchRole = roleParts.includes(serverBaseRole);
+                    // 饼图中的角色名（可能是基础角色如 "kvm"）
+                    const targetRole = selectedRole.role;
+                    // 服务器角色可能是 "kvm/web" 或 "kvm" 格式
+                    const serverBaseRole = serverRole.split('/')[0].trim();
+                    
+                    // 精确匹配基础角色，或者服务器角色完全匹配目标角色
+                    matchRole = serverBaseRole === targetRole || serverRole === targetRole;
                   }
                   
                   return matchBrand && matchModel && matchRole;
