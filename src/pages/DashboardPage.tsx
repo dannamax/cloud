@@ -289,7 +289,7 @@ export function DashboardPage() {
       icon: Layers,
       color: 'text-status-online',
       bgColor: 'bg-status-online/10',
-      onClick: () => navigate('/servers'),
+      onClick: () => navigate('/config'),
     },
     {
       title: '机柜数量',
@@ -297,7 +297,7 @@ export function DashboardPage() {
       icon: Database,
       color: 'text-status-warning',
       bgColor: 'bg-status-warning/10',
-      onClick: () => navigate('/servers'),
+      onClick: () => navigate('/cabinets'),
     },
   ];
 
