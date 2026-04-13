@@ -868,35 +868,43 @@ export function ServersPage() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* 批量操作 */}
-        {selectedIds.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-background-border flex items-center gap-4">
-            <span className="text-sm text-slate-400">
-              已选择 {selectedIds.length} 项
+      {/* 批量操作栏 - 固定在顶部，选择服务器后始终可见 */}
+      {selectedIds.length > 0 && (
+        <div className="sticky top-0 z-40 bg-background-card/95 backdrop-blur-sm border border-primary/30 rounded-lg px-4 py-3 flex items-center gap-4 shadow-lg shadow-primary/10">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 text-primary" />
+            </div>
+            <span className="text-sm text-white font-medium">
+              已选择 <span className="text-primary">{selectedIds.length}</span> 台服务器
             </span>
+          </div>
+          <div className="flex-1 flex items-center gap-2">
             <button
               onClick={() => handleBatchStatus('已上架')}
-              className="text-sm text-status-online hover:underline"
+              className="px-3 py-1.5 text-sm bg-status-online/10 text-status-online border border-status-online/30 rounded-md hover:bg-status-online/20 transition-colors"
             >
               批量上架
             </button>
             <button
               onClick={() => handleBatchStatus('待上架')}
-              className="text-sm text-slate-400 hover:underline"
+              className="px-3 py-1.5 text-sm bg-slate-500/10 text-slate-300 border border-slate-500/30 rounded-md hover:bg-slate-500/20 transition-colors"
             >
               批量下架
             </button>
             <button
               onClick={() => handleBatchStatus('异动中')}
-              className="text-sm text-status-warning hover:underline"
+              className="px-3 py-1.5 text-sm bg-status-warning/10 text-status-warning border border-status-warning/30 rounded-md hover:bg-status-warning/20 transition-colors"
             >
               批量异动
             </button>
-            <div className="flex-1" />
+          </div>
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setShowBatchEditModal(true)}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary/10 text-primary border border-primary/30 rounded-md hover:bg-primary/20 transition-colors"
+              className="flex items-center gap-2 px-4 py-1.5 text-sm bg-primary text-white border border-primary/50 rounded-md hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
             >
               <Terminal className="w-4 h-4" />
               SQL 维护
@@ -908,9 +916,16 @@ export function ServersPage() {
               <Trash2 className="w-4 h-4" />
               批量删除
             </button>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-2 py-1.5 text-sm text-slate-400 hover:text-white transition-colors"
+              title="取消选择"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* 服务器表格 */}
       <div className="bg-background-card border border-background-border rounded-xl overflow-hidden">
