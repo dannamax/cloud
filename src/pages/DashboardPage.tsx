@@ -25,8 +25,13 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [environmentCount, setEnvironmentCount] = useState(0);
   const [cabinetCount, setCabinetCount] = useState(0);
-  const [selectedRole, setSelectedRole] = useState<{ role: string; model_name: string } | null>(null);
+  const [selectedRole, setSelectedRole] = useState<{ role: string; model_name: string; brand?: string } | null>(null);
   const [roleDetailModal, setRoleDetailModal] = useState(false);
+  const [selectedBrand, setSelectedBrand] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [expandedBrands, setExpandedBrands] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'brand' | 'product'>('brand'); // 厂商视角 / 产品视角
+  const [selectedProductRole, setSelectedProductRole] = useState<string>(''); // 选中的产品角色
 
   const fetchData = async () => {
     setLoading(true);
@@ -135,14 +140,34 @@ export function DashboardPage() {
       </div>
 
       {/* 主要内容区域 - 左右分栏 */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-        {/* 左侧（3列）- 角色-机型分布 */}
-        <div className="xl:col-span-3 space-y-6">
-          {/* 角色-机型分布 - 热力图矩阵视图 */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* 左侧（2列）- 角色-机型分布 */}
+        <div className="xl:col-span-2 space-y-6">
+          {/* 角色-机型分布 - 厂商/型号下拉 + 饼图视图 */}
           <div className="bg-background-card border border-background-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">角色-机型分布</h2>
-              <span className="text-xs text-slate-500">点击单元格查看服务器详情</span>
+              <div className="flex items-center gap-4">
+                <div className="flex bg-slate-800 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('brand')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      viewMode === 'brand' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    厂商视角
+                  </button>
+                  <button
+                    onClick={() => setViewMode('product')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      viewMode === 'product' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    产品视角
+                  </button>
+                </div>
+                <span className="text-xs text-slate-500">点击连接线查看服务器详情</span>
+              </div>
             </div>
             {(() => {
               // 构建数据：从 allServers 聚合
@@ -154,172 +179,448 @@ export function DashboardPage() {
                 );
               }
 
-              // 聚合机型-角色数据
-              const modelRoleMap = new Map<string, Map<string, number>>();
-              const roleSet = new Set<string>();
-              const modelSet = new Set<string>();
+              // 聚合厂商-型号-角色数据
+              const brandModelMap = new Map<string, Map<string, Map<string, number>>>();
               
               stats.allServers.forEach((s: any) => {
                 const role = s.role || '未分配';
-                const model = `${s.brand || ''} ${s.model || ''}`.trim() || '未知';
-                roleSet.add(role);
-                modelSet.add(model);
+                const brand = (s.brand || '').trim() || '未知';
+                const model = (s.model || '').trim() || '未知';
                 
-                if (!modelRoleMap.has(model)) modelRoleMap.set(model, new Map());
-                const roleMap = modelRoleMap.get(model)!;
+                if (!brandModelMap.has(brand)) brandModelMap.set(brand, new Map());
+                const modelMap = brandModelMap.get(brand)!;
+                
+                if (!modelMap.has(model)) modelMap.set(model, new Map());
+                const roleMap = modelMap.get(model)!;
                 roleMap.set(role, (roleMap.get(role) || 0) + 1);
               });
 
-              // 排序：机型按总数降序，角色按总数降序
-              const modelTotals = new Map<string, number>();
-              modelRoleMap.forEach((roleMap, model) => {
-                let total = 0;
-                roleMap.forEach(count => total += count);
-                modelTotals.set(model, total);
-              });
-
-              const sortedModels = Array.from(modelTotals.entries())
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 12)  // 最多显示12种机型
-                .map(([m]) => m);
-
-              // 找出最大数量用于计算颜色深度
-              let maxCount = 0;
-              modelRoleMap.forEach(roleMap => {
-                roleMap.forEach(count => {
-                  if (count > maxCount) maxCount = count;
+              // 获取所有厂商
+              const brands = Array.from(brandModelMap.keys())
+                .sort()
+                .map(brand => {
+                  let total = 0;
+                  brandModelMap.get(brand)?.forEach(roleMap => {
+                    roleMap.forEach(count => total += count);
+                  });
+                  return { name: brand, total };
                 });
-              });
 
-              // 计算每种机型的角色分布
-              const getModelDistribution = (model: string) => {
-                const roleMap = modelRoleMap.get(model) || new Map();
+              // 获取选中厂商的所有型号
+              const getModelsByBrand = (brand: string) => {
+                const modelMap = brandModelMap.get(brand) || new Map();
+                return Array.from(modelMap.entries())
+                  .map(([model, roleMap]) => {
+                    let total = 0;
+                    roleMap.forEach((count: number) => total += count);
+                    return { name: model, total };
+                  })
+                  .sort((a, b) => b.total - a.total);
+              };
+
+              // 初始化默认选中的厂商
+              if (!selectedBrand && brands.length > 0) {
+                setSelectedBrand(brands[0].name);
+                return null;
+              }
+
+              // 获取当前厂商的型号列表
+              const currentModels = getModelsByBrand(selectedBrand);
+
+              // 初始化默认选中的型号为"全部"
+              if (!selectedModel) {
+                setSelectedModel('全部');
+                return null;
+              }
+
+              // 计算选中型号的角色分布（支持"全部"选项）
+              const getModelDistribution = (brand: string, model: string) => {
+                let roleMap: Map<string, number>;
+                
+                if (model === '全部') {
+                  // 汇总该厂商下所有型号的角色
+                  roleMap = new Map();
+                  const modelMapData = brandModelMap.get(brand);
+                  if (modelMapData) {
+                    modelMapData.forEach((rm) => {
+                      rm.forEach((count, role) => {
+                        roleMap.set(role, (roleMap.get(role) || 0) + count);
+                      });
+                    });
+                  }
+                } else {
+                  roleMap = brandModelMap.get(brand)?.get(model) || new Map();
+                }
+                
+                const normalizeRole = (role: string): string[] => {
+                  return role.split('/').map(s => s.trim()).filter(Boolean).sort();
+                };
+                
+                const getBaseRole = (role: string): string => {
+                  const parts = normalizeRole(role);
+                  if (parts.length === 0) return '未知';
+                  return parts[0];
+                };
+                
+                const getSubRoles = (role: string): Set<string> => {
+                  const parts = normalizeRole(role);
+                  return new Set(parts.slice(1));
+                };
+                
+                const byBaseRole = new Map<string, { count: number; subRoles: Map<string, number>, rawRoles: string[] }>();
+                
+                roleMap.forEach((count, role) => {
+                  const baseRole = getBaseRole(role);
+                  const subRoles = getSubRoles(role);
+                  
+                  if (!byBaseRole.has(baseRole)) {
+                    byBaseRole.set(baseRole, { count: 0, subRoles: new Map(), rawRoles: [] });
+                  }
+                  
+                  const entry = byBaseRole.get(baseRole)!;
+                  entry.count += count;
+                  entry.rawRoles.push(role);
+                  
+                  subRoles.forEach(sub => {
+                    entry.subRoles.set(sub, (entry.subRoles.get(sub) || 0) + count);
+                  });
+                });
+                
                 const dist: { role: string; count: number; percent: number }[] = [];
                 let total = 0;
-                roleMap.forEach((count, role) => {
-                  total += count;
-                  dist.push({ role, count, percent: 0 });
+                
+                byBaseRole.forEach((entry, baseRole) => {
+                  total += entry.count;
+                  
+                  if (entry.subRoles.size > 0) {
+                    const subParts: string[] = [];
+                    entry.subRoles.forEach((subCount, sub) => {
+                      const subPercent = (subCount / entry.count) * 100;
+                      if (subPercent >= 10) {
+                        subParts.push(sub);
+                      }
+                    });
+                    const displayRole = subParts.length > 0 
+                      ? `${baseRole}/${subParts.join('/')}`
+                      : baseRole;
+                    dist.push({ role: displayRole, count: entry.count, percent: 0 });
+                  } else {
+                    dist.push({ role: baseRole, count: entry.count, percent: 0 });
+                  }
                 });
+                
                 dist.forEach(d => {
                   d.percent = total > 0 ? Math.round((d.count / total) * 100) : 0;
                 });
+                
                 return { dist: dist.sort((a, b) => b.count - a.count), total };
               };
 
-              // 颜色渐变函数
-              const getHeatColor = (count: number, total: number) => {
-                if (count === 0 || total === 0) return 'bg-slate-800/30';
-                const intensity = count / maxCount;
-                if (intensity > 0.7) return 'bg-primary text-white';
-                if (intensity > 0.4) return 'bg-primary/70 text-white';
-                if (intensity > 0.2) return 'bg-primary/40 text-white';
-                return 'bg-primary/20 text-slate-300';
-              };
+              const { dist, total } = getModelDistribution(selectedBrand, selectedModel);
 
-              const getBarColor = (count: number, total: number) => {
-                if (total === 0) return 'bg-slate-700';
-                const ratio = count / total;
-                if (ratio > 0.6) return 'bg-green-500';
-                if (ratio > 0.3) return 'bg-blue-500';
-                if (ratio > 0.1) return 'bg-yellow-500';
-                return 'bg-slate-500';
-              };
+              // 饼图颜色
+              const pieColors = ['#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#D946EF'];
+              
+              const pieData = dist.map((item, idx) => ({
+                ...item,
+                color: pieColors[idx % pieColors.length]
+              }));
 
               return (
                 <div className="space-y-4">
-                  {/* 图例 */}
-                  <div className="flex items-center gap-4 text-xs text-slate-400">
-                    <span>图例：占比</span>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded bg-slate-700"></div>
-                      <span>&lt;10%</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded bg-primary/20"></div>
-                      <span>10-20%</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded bg-primary/40"></div>
-                      <span>20-40%</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded bg-primary/70"></div>
-                      <span>40-70%</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded bg-primary"></div>
-                      <span>&gt;70%</span>
-                    </div>
-                  </div>
-
-                  {/* 机型卡片列表 - 堆叠条形图形式 */}
-                  <div className="space-y-3">
-                    {sortedModels.map(model => {
-                      const { dist, total } = getModelDistribution(model);
-                      if (total === 0) return null;
-                      
-                      return (
-                        <div
-                          key={model}
-                          className="group cursor-pointer"
-                          onClick={() => {
-                            setSelectedRole({ role: '', model_name: model });
-                            setRoleDetailModal(true);
-                          }}
-                        >
-                          <div className="flex items-center mb-2">
-                            <div className="w-40 text-sm text-slate-300 truncate pr-3" title={model}>
-                              {model}
-                            </div>
-                            <div className="flex-1 h-8 bg-slate-800/50 rounded-lg overflow-hidden flex">
-                              {dist.map((item, idx) => {
-                                const width = (item.count / total) * 100;
-                                return (
+                  {viewMode === 'brand' ? (
+                  /* 厂商视角 - 带左侧厂商列表 */
+                  <div className="flex gap-4">
+                    {/* 左侧厂商列表 */}
+                    <div className="w-56 shrink-0">
+                      <div className="text-sm text-slate-400 mb-2">点击厂商查看机型：</div>
+                      <div className="space-y-1">
+                        {brands.map((brand) => {
+                          const isExpanded = expandedBrands.has(brand.name);
+                          const brandModels = getModelsByBrand(brand.name);
+                          const isSelected = selectedBrand === brand.name;
+                          
+                          return (
+                            <div key={brand.name}>
+                              <div
+                                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                                  isSelected ? 'bg-primary/20 border border-primary/50' : 'hover:bg-slate-800'
+                                }`}
+                                onClick={() => {
+                                  setSelectedBrand(brand.name);
+                                  setSelectedModel('全部');
+                                  setExpandedBrands(prev => {
+                                    const newSet = new Set(prev);
+                                    if (newSet.has(brand.name)) {
+                                      newSet.delete(brand.name);
+                                    } else {
+                                      newSet.add(brand.name);
+                                    }
+                                    return newSet;
+                                  });
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                                    {brand.name}
+                                  </span>
+                                  <span className="text-xs text-slate-500">{brand.total}台</span>
+                                </div>
+                                <span className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                                  ▶
+                                </span>
+                              </div>
+                              {/* 机型列表 */}
+                              {isExpanded && (
+                                <div className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-3">
                                   <div
-                                    key={item.role}
-                                    className={`h-full flex items-center justify-center text-xs font-medium transition-all hover:brightness-125 ${getHeatColor(item.count, total)}`}
-                                    style={{ width: `${width}%`, minWidth: width > 0 ? '24px' : '0' }}
-                                    title={`${item.role}: ${item.count}台 (${item.percent}%)`}
+                                    className={`text-xs px-2 py-1 rounded cursor-pointer transition-all ${
+                                      selectedBrand === brand.name && selectedModel === '全部'
+                                        ? 'bg-primary/30 text-white'
+                                        : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+                                    }`}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setSelectedRole({ role: item.role, model_name: model });
-                                      setRoleDetailModal(true);
+                                      setSelectedBrand(brand.name);
+                                      setSelectedModel('全部');
                                     }}
                                   >
-                                    {width > 8 ? item.count : ''}
+                                    全部型号 ({brand.total})
                                   </div>
-                                );
-                              })}
+                                  {brandModels.map((model) => (
+                                    <div
+                                      key={model.name}
+                                      className={`text-xs px-2 py-1 rounded cursor-pointer transition-all ${
+                                        selectedBrand === brand.name && selectedModel === model.name
+                                          ? 'bg-primary/30 text-white'
+                                          : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+                                      }`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedBrand(brand.name);
+                                        setSelectedModel(model.name);
+                                        setExpandedBrands(prev => new Set([...prev, brand.name]));
+                                      }}
+                                    >
+                                      {model.name} ({model.total})
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <div className="w-16 text-right text-sm text-slate-400 pl-3">
-                              {total}台
-                            </div>
-                          </div>
-                          {/* 角色标签 */}
-                          <div className="flex items-center gap-2 ml-40">
-                            {dist.slice(0, 5).map((item, idx) => (
-                              <div
-                                key={item.role}
-                                className="flex items-center gap-1 text-xs"
-                              >
-                                <div className={`w-2 h-2 rounded-full ${getBarColor(item.count, total)}`}></div>
-                                <span className="text-slate-500">{item.role}</span>
-                                <span className="text-slate-400">({item.percent}%)</span>
-                              </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 右侧饼图 */}
+                    <div className="flex-1 h-[26rem]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart margin={{ top: 30, right: 30, bottom: 30, left: 30 }}>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={70}
+                            outerRadius={90}
+                            paddingAngle={2}
+                            dataKey="count"
+                            labelLine={true}
+                            label={({ role, percent, count, cx, cy, midAngle, outerRadius }) => {
+                              const RADIAN = Math.PI / 180;
+                              const startX = cx + (outerRadius + 5) * Math.cos(-midAngle * RADIAN);
+                              const startY = cy + (outerRadius + 5) * Math.sin(-midAngle * RADIAN);
+                              const isRight = Math.cos(-midAngle * RADIAN) > 0;
+                              const lineLength = 100;
+                              const labelRadius = outerRadius + lineLength;
+                              const endX = cx + labelRadius * Math.cos(-midAngle * RADIAN);
+                              const endY = cy + labelRadius * Math.sin(-midAngle * RADIAN);
+                              const textX = endX + (isRight ? 8 : -8);
+                              
+                              return (
+                                <g>
+                                  <line x1={startX} y1={startY} x2={endX} y2={endY} stroke="#64748B" strokeWidth={1} />
+                                  <text
+                                    x={textX}
+                                    y={endY}
+                                    fill="#94A3B8"
+                                    fontSize={12}
+                                    textAnchor={isRight ? 'start' : 'end'}
+                                    dominantBaseline="middle"
+                                  >
+                                    {role}: {count}台 ({percent}%)
+                                  </text>
+                                </g>
+                              );
+                            }}
+                          >
+                            {pieData.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={entry.color} 
+                                className="cursor-pointer hover:opacity-80"
+                                onClick={() => {
+                                  setSelectedRole({ role: entry.role, model_name: selectedModel, brand: selectedBrand });
+                                  setRoleDetailModal(true);
+                                }}
+                              />
                             ))}
-                            {dist.length > 5 && (
-                              <span className="text-xs text-slate-500">+{dist.length - 5}个角色</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                          </Pie>
+                          {/* 中心汇总表格 - 使用foreignObject居中 */}
+                          <foreignObject x="40%" y="42%" width="20%" height="16%">
+                            <div xmlns="http://www.w3.org/1999/xhtml" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94A3B8', fontSize: '10px', textAlign: 'center' }}>
+                              <div>厂商</div>
+                              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{selectedBrand}</div>
+                              <div style={{ marginTop: '4px' }}>型号</div>
+                              <div style={{ color: '#fff', fontSize: '11px' }}>{selectedModel}</div>
+                              <div style={{ marginTop: '4px' }}>共</div>
+                              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{total} 台</div>
+                            </div>
+                          </foreignObject>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
+                  ) : (
+                  /* 产品视角 - 按角色查看机型分布 */
+                  <div className="flex gap-4">
+                    {/* 左侧角色列表 */}
+                    <div className="w-56 shrink-0">
+                      <div className="text-sm text-slate-400 mb-2">选择产品角色：</div>
+                      <div className="space-y-1">
+                        {(() => {
+                          // 获取所有角色及其总数量
+                          const roleMap = new Map<string, number>();
+                          stats.allServers.forEach((s: any) => {
+                            const role = (s.role || '未分配').split('/')[0].trim();
+                            if (role) {
+                              roleMap.set(role, (roleMap.get(role) || 0) + 1);
+                            }
+                          });
+                          const roles = Array.from(roleMap.entries())
+                            .map(([name, total]) => ({ name, total }))
+                            .sort((a, b) => b.total - a.total);
+                          
+                          // 初始化默认选中的角色
+                          if (!selectedProductRole && roles.length > 0) {
+                            setSelectedProductRole(roles[0].name);
+                            return null;
+                          }
+                          
+                          return roles.map((role) => (
+                            <div
+                              key={role.name}
+                              className={`px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                                selectedProductRole === role.name
+                                  ? 'bg-primary/20 border border-primary/50'
+                                  : 'hover:bg-slate-800 text-slate-300'
+                              }`}
+                              onClick={() => setSelectedProductRole(role.name)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm">{role.name}</span>
+                                <span className="text-xs text-slate-500">{role.total}台</span>
+                              </div>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* 右侧饼图 - 显示选中角色的机型分布 */}
+                    <div className="flex-1 h-[26rem]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart margin={{ top: 30, right: 30, bottom: 30, left: 30 }}>
+                          <Pie
+                            data={(() => {
+                              // 获取选中角色的机型分布
+                              const modelMap = new Map<string, number>();
+                              stats.allServers.forEach((s: any) => {
+                                const role = (s.role || '未分配').split('/')[0].trim();
+                                if (role === selectedProductRole) {
+                                  const model = ((s.brand || '') + ' ' + (s.model || '')).trim() || '未知';
+                                  modelMap.set(model, (modelMap.get(model) || 0) + 1);
+                                }
+                              });
+                              const total = Array.from(modelMap.values()).reduce((a, b) => a + b, 0);
+                              return Array.from(modelMap.entries())
+                                .map(([name, count]) => ({ name, count, percent: Math.round((count / total) * 100) || 0 }))
+                                .sort((a, b) => b.count - a.count);
+                            })()}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={2}
+                            dataKey="count"
+                            labelLine={true}
+                            label={({ name, percent, count, cx, cy, midAngle, outerRadius }) => {
+                              const RADIAN = Math.PI / 180;
+                              const startX = cx + (outerRadius + 5) * Math.cos(-midAngle * RADIAN);
+                              const startY = cy + (outerRadius + 5) * Math.sin(-midAngle * RADIAN);
+                              const isRight = Math.cos(-midAngle * RADIAN) > 0;
+                              const lineLength = 100;
+                              const labelRadius = outerRadius + lineLength;
+                              const endX = cx + labelRadius * Math.cos(-midAngle * RADIAN);
+                              const endY = cy + labelRadius * Math.sin(-midAngle * RADIAN);
+                              const textX = endX + (isRight ? 8 : -8);
+                              
+                              return (
+                                <g>
+                                  <line x1={startX} y1={startY} x2={endX} y2={endY} stroke="#64748B" strokeWidth={1} />
+                                  <text
+                                    x={textX}
+                                    y={endY}
+                                    fill="#94A3B8"
+                                    fontSize={12}
+                                    textAnchor={isRight ? 'start' : 'end'}
+                                    dominantBaseline="middle"
+                                  >
+                                    {name}: {count}台 ({percent}%)
+                                  </text>
+                                </g>
+                              );
+                            }}
+                          >
+                            {['#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'].map((color, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={color}
+                                className="cursor-pointer hover:opacity-80"
+                                onClick={() => {
+                                  setSelectedRole({ role: selectedProductRole, model_name: '', brand: '' });
+                                  setRoleDetailModal(true);
+                                }}
+                              />
+                            ))}
+                          </Pie>
+                          {/* 中心汇总 - 使用foreignObject居中 */}
+                          <foreignObject x="40%" y="42%" width="20%" height="16%">
+                            <div xmlns="http://www.w3.org/1999/xhtml" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94A3B8', fontSize: '10px', textAlign: 'center' }}>
+                              <div>角色</div>
+                              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{selectedProductRole}</div>
+                              <div style={{ marginTop: '4px' }}>共</div>
+                              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{stats?.allServers?.filter((s: any) => (s.role || '未分配').split('/')[0].trim() === selectedProductRole).length || 0} 台</div>
+                            </div>
+                          </foreignObject>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  )}
 
                   {/* 底部统计 */}
                   <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-sm">
                     <span className="text-slate-500">
-                      共 {sortedModels.length} 种机型，覆盖 {stats.allServers.length} 台服务器
+                      {viewMode === 'brand' ? (
+                        selectedModel === '全部' 
+                          ? `${selectedBrand} 全部型号 共 ${total} 台服务器，${dist.length} 种角色`
+                          : `${selectedBrand} - ${selectedModel} 共 ${total} 台服务器，${dist.length} 种角色`
+                      ) : (
+                        `${selectedProductRole} 角色 共 ${
+                          stats?.allServers?.filter((s: any) => (s.role || '未分配').split('/')[0].trim() === selectedProductRole).length || 0
+                        } 台服务器`
+                      )}
                     </span>
                     <span
                       className="text-primary hover:text-primary/80 cursor-pointer"
@@ -335,20 +636,20 @@ export function DashboardPage() {
         </div>
 
         {/* 右侧（1列）- 环境分布 + 近期变更 */}
-        <div className="xl:col-span-1 space-y-6">
+        <div className="xl:col-span-1 space-y-6 w-full">
           {/* 环境分布 */}
           <div className="bg-background-card border border-background-border rounded-xl p-5">
             <h2 className="text-lg font-semibold text-white mb-4">环境分布</h2>
             {stats?.byEnvironment && stats.byEnvironment.length > 0 ? (
-              <div className="h-64">
+              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
+                  <PieChart margin={{ top: 20, right: 100, bottom: 20, left: 100 }}>
                     <Pie
                       data={stats.byEnvironment}
                       cx="50%"
                       cy="50%"
-                      innerRadius={40}
-                      outerRadius={70}
+                      innerRadius={45}
+                      outerRadius={75}
                       paddingAngle={2}
                       dataKey="count"
                       nameKey="environment"
@@ -358,8 +659,8 @@ export function DashboardPage() {
                         const startX = cx + (outerRadius + 2) * Math.cos(-midAngle * RADIAN);
                         const startY = cy + (outerRadius + 2) * Math.sin(-midAngle * RADIAN);
                         const isRight = Math.cos(-midAngle * RADIAN) > 0;
-                        const lineLength = 40;
-                        const horizontalExtension = 10;
+                        const lineLength = 60;
+                        const horizontalExtension = 20;
                         const labelRadius = outerRadius + lineLength;
                         const endX = cx + labelRadius * Math.cos(-midAngle * RADIAN);
                         const endY = cy + labelRadius * Math.sin(-midAngle * RADIAN);
@@ -454,11 +755,14 @@ export function DashboardPage() {
                 <Monitor className="w-5 h-5 text-primary" />
                 <div>
                   <h3 className="text-white font-semibold">
+                    {selectedRole.brand && `厂商: ${selectedRole.brand} / `}
                     {selectedRole.role ? `角色: ${selectedRole.role}` : '所有角色'}
                     {selectedRole.model_name && ` / 机型: ${selectedRole.model_name}`}
                   </h3>
                   <p className="text-sm text-slate-400">
-                    {selectedRole.role && selectedRole.model_name ? '筛选条件' : selectedRole.model_name ? '查看该机型所有服务器' : '查看该角色所有服务器'}
+                    {selectedRole.brand && `${selectedRole.brand} - `}
+                    {selectedRole.model_name && selectedRole.model_name !== '全部' ? `${selectedRole.model_name} - ` : ''}
+                    {selectedRole.role ? `角色: ${selectedRole.role}` : '所有角色'}
                   </p>
                 </div>
               </div>
@@ -478,15 +782,18 @@ export function DashboardPage() {
               {(() => {
                 // 从 allServers 筛选符合条件的服务器
                 const servers = stats?.allServers?.filter((s: any) => {
+                  const serverBrand = (s.brand || '').trim();
                   const serverRole = s.role || '未分配';
-                  const serverModel = `${s.brand || ''} ${s.model || ''}`.trim() || '未知';
+                  const serverModel = (s.model || '').trim();
                   
-                  // 机型筛选
-                  const matchModel = !selectedRole.model_name || serverModel === selectedRole.model_name;
+                  // 厂商筛选
+                  const matchBrand = !selectedRole.brand || serverBrand === selectedRole.brand;
+                  // 机型筛选（支持"全部"选项）
+                  const matchModel = !selectedRole.model_name || selectedRole.model_name === '全部' || serverModel === selectedRole.model_name;
                   // 角色筛选（当role不为空时才筛选角色）
                   const matchRole = !selectedRole.role || serverRole === selectedRole.role;
                   
-                  return matchModel && matchRole;
+                  return matchBrand && matchModel && matchRole;
                 }) || [];
 
                 if (servers.length === 0) {
@@ -549,11 +856,13 @@ export function DashboardPage() {
             <div className="px-6 py-3 border-t border-background-border text-sm text-slate-400 flex items-center justify-between">
               <span>
                 共 {stats?.allServers?.filter((s: any) => {
+                  const serverBrand = (s.brand || '').trim();
                   const serverRole = s.role || '未分配';
-                  const serverModel = `${s.brand || ''} ${s.model || ''}`.trim() || '未知';
-                  const matchModel = !selectedRole.model_name || serverModel === selectedRole.model_name;
+                  const serverModel = (s.model || '').trim();
+                  const matchBrand = !selectedRole.brand || serverBrand === selectedRole.brand;
+                  const matchModel = !selectedRole.model_name || selectedRole.model_name === '全部' || serverModel === selectedRole.model_name;
                   const matchRole = !selectedRole.role || serverRole === selectedRole.role;
-                  return matchModel && matchRole;
+                  return matchBrand && matchModel && matchRole;
                 }).length || 0} 台服务器
               </span>
               <button
