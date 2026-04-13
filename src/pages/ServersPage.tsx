@@ -748,9 +748,15 @@ export function ServersPage() {
             className="bg-background border border-background-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
           >
             <option value="">全部状态</option>
-            <option value="已上架">已上架</option>
-            <option value="待上架">待上架</option>
-            <option value="异动中">异动中</option>
+            <optgroup label="在线状态">
+              <option value="online">在线</option>
+              <option value="offline">离线</option>
+            </optgroup>
+            <optgroup label="资产状态">
+              <option value="已上架">已上架</option>
+              <option value="待上架">待上架</option>
+              <option value="异动中">异动中</option>
+            </optgroup>
           </select>
 
           {/* 角色筛选 */}
