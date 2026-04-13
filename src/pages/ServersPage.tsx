@@ -1691,7 +1691,7 @@ function ColumnConfigModal({ columns, onToggle, onReset, onClose }: ColumnConfig
   const basicCols = columns.filter(c => ['checkbox', 'status', 'system_ip', 'name'].includes(c.key));
   const networkCols = columns.filter(c => ['manage_ip', 'oob_ip'].includes(c.key));
   const hardwareCols = columns.filter(c => ['cpu', 'memory', 'disk', 'network_card'].includes(c.key));
-  const locationCols = columns.filter(c => ['environment', 'role', 'cabinet'].includes(c.key));
+  const locationCols = columns.filter(c => ['environment', 'role', 'role_type', 'cabinet'].includes(c.key));
   const infoCols = columns.filter(c => ['brand', 'model', 'sn'].includes(c.key));
   const otherCols = columns.filter(c => ['tags', 'remark', 'actions'].includes(c.key));
 
