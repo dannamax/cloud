@@ -346,7 +346,7 @@ export function DashboardPage() {
           <div className="bg-background-card border border-background-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">角色-机型分布</h2>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center justify-end gap-4">
                 <div className="flex bg-slate-800 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode('brand')}
@@ -365,7 +365,6 @@ export function DashboardPage() {
                     产品视角
                   </button>
                 </div>
-                <span className="text-xs text-slate-500">点击连接线查看服务器详情</span>
               </div>
             </div>
             {stats?.allServers && stats.allServers.length > 0 ? (
