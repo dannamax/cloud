@@ -509,7 +509,14 @@ export function DashboardPage() {
                           </thead>
                           <tbody>
                             {dist.map((item, idx) => (
-                              <tr key={idx} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                              <tr 
+                                key={idx} 
+                                className="border-b border-slate-800/50 hover:bg-slate-800/30 cursor-pointer"
+                                onClick={() => {
+                                  setSelectedRole({ role: item.role, model_name: selectedModel, brand: selectedBrand });
+                                  setRoleDetailModal(true);
+                                }}
+                              >
                                 <td className="py-2 px-3">
                                   <span className="flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: pieColors[idx % pieColors.length] }}></span>
@@ -693,7 +700,14 @@ export function DashboardPage() {
                                 .sort((a, b) => b.count - a.count);
                               const colors = ['#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
                               return modelDist.map((item, idx) => (
-                                <tr key={idx} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                                <tr 
+                                  key={idx} 
+                                  className="border-b border-slate-800/50 hover:bg-slate-800/30 cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedRole({ role: selectedProductRole, model_name: '', brand: '' });
+                                    setRoleDetailModal(true);
+                                  }}
+                                >
                                   <td className="py-2 px-3">
                                     <span className="flex items-center gap-2">
                                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colors[idx % colors.length] }}></span>
@@ -893,8 +907,17 @@ export function DashboardPage() {
                   const matchBrand = !selectedRole.brand || serverBrand === selectedRole.brand;
                   // 机型筛选（支持"全部"选项）
                   const matchModel = !selectedRole.model_name || selectedRole.model_name === '全部' || serverModel === selectedRole.model_name;
-                  // 角色筛选（当role不为空时才筛选角色）
-                  const matchRole = !selectedRole.role || serverRole === selectedRole.role;
+                  
+                  // 角色筛选逻辑
+                  let matchRole = true;
+                  if (selectedRole.role) {
+                    // 如果显示的角色包含子角色（如 "DNS/LB/MySQL"），提取所有子角色
+                    const roleParts = selectedRole.role.split('/');
+                    // 获取服务器角色的基础角色（第一个 / 前的部分）
+                    const serverBaseRole = serverRole.split('/')[0];
+                    // 检查服务器的基础角色是否在角色列表中
+                    matchRole = roleParts.includes(serverBaseRole);
+                  }
                   
                   return matchBrand && matchModel && matchRole;
                 }) || [];
