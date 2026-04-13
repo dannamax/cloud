@@ -20,7 +20,12 @@ router.get('/', (req, res) => {
     params.push(environment);
   }
   if (status) {
-    sql += ' AND status = ?';
+    // status 参数可能是 'online', 'offline' (online_status) 或 '已上架'/'异动中' (status)
+    if (status === 'online' || status === 'offline') {
+      sql += ' AND online_status = ?';
+    } else {
+      sql += ' AND status = ?';
+    }
     params.push(status);
   }
   if (role) {
