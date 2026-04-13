@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -250,7 +250,11 @@ export function ServersPage() {
   // 可见列
   const visibleColumns = columns.filter(col => col.visible);
 
-  const fetchServers = async () => {
+  // 从 URL 参数初始化 filters
+  const [searchParams] = useSearchParams();
+
+  // 使用 useCallback 确保 fetchServers 总是使用最新的 filters
+  const fetchServers = useCallback(async () => {
     setLoading(true);
     try {
       const [data, statsData] = await Promise.all([
@@ -265,10 +269,7 @@ export function ServersPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // 从 URL 参数初始化 filters
-  const [searchParams] = useSearchParams();
+  }, [filters]);
 
   // 监听 URL 参数变化来更新 filters
   useEffect(() => {
@@ -276,18 +277,19 @@ export function ServersPage() {
     const env = searchParams.get('environment');
     const role = searchParams.get('role');
 
-    setFilters(prev => ({
+    setFilters({
       environment: env || '',
       status: status || '',
       role: role || '',
-      cabinet: prev.cabinet,
-      keyword: prev.keyword,
-    }));
+      cabinet: '',
+      keyword: '',
+    });
   }, [searchParams]);
 
+  // filters 变化时调用 fetchServers
   useEffect(() => {
     fetchServers();
-  }, [filters]);
+  }, [fetchServers]);
 
   const environments = useMemo(() => 
     stats?.byEnvironment?.map(e => e.environment) || [], 
