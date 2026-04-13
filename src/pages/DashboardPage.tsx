@@ -203,6 +203,28 @@ export function DashboardPage() {
     }));
   }, [modelDistribution.dist]);
 
+  // 获取产品视角的所有角色列表
+  const productRoles = useMemo(() => {
+    const roleMap = new Map<string, number>();
+    stats?.allServers?.forEach((s: any) => {
+      const role = (s.role || '未分配').split('/')[0].trim();
+      if (role) {
+        roleMap.set(role, (roleMap.get(role) || 0) + 1);
+      }
+    });
+    return Array.from(roleMap.entries())
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total);
+  }, [stats]);
+
+  // 切换到产品视角时，自动选中第一个角色
+  const handleSwitchToProductView = useCallback(() => {
+    if (productRoles.length > 0 && !selectedProductRole) {
+      setSelectedProductRole(productRoles[0].name);
+    }
+    setViewMode('product');
+  }, [productRoles, selectedProductRole]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -328,7 +350,7 @@ export function DashboardPage() {
                     厂商视角
                   </button>
                   <button
-                    onClick={() => setViewMode('product')}
+                    onClick={handleSwitchToProductView}
                     className={`px-3 py-1 text-sm rounded-md transition-colors ${
                       viewMode === 'product' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'
                     }`}
@@ -445,7 +467,7 @@ export function DashboardPage() {
                     <div className="text-sm text-slate-400 mb-2">选择产品角色：</div>
                     <div className="space-y-1">
                       <ProductRolesList 
-                        stats={stats} 
+                        roles={productRoles} 
                         selectedProductRole={selectedProductRole}
                         onSelectRole={setSelectedProductRole}
                       />
@@ -1044,25 +1066,12 @@ const BrandPieChart = memo(BrandPieChartInner);
 
 // 产品视角角色列表组件
 interface ProductRolesListProps {
-  stats: any;
+  roles: { name: string; total: number }[];
   selectedProductRole: string;
   onSelectRole: (role: string) => void;
 }
 
-function ProductRolesListInner({ stats, selectedProductRole, onSelectRole }: ProductRolesListProps) {
-  const roles = useMemo(() => {
-    const roleMap = new Map<string, number>();
-    stats?.allServers?.forEach((s: any) => {
-      const role = (s.role || '未分配').split('/')[0].trim();
-      if (role) {
-        roleMap.set(role, (roleMap.get(role) || 0) + 1);
-      }
-    });
-    return Array.from(roleMap.entries())
-      .map(([name, total]) => ({ name, total }))
-      .sort((a, b) => b.total - a.total);
-  }, [stats]);
-
+function ProductRolesListInner({ roles, selectedProductRole, onSelectRole }: ProductRolesListProps) {
   if (roles.length === 0) {
     return <div className="text-slate-500 text-sm">暂无角色数据</div>;
   }
