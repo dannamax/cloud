@@ -284,8 +284,16 @@ export function ServersPage() {
   const fetchServers = useCallback(async () => {
     setLoading(true);
     try {
+      // 直接从 URL 参数获取最新的过滤条件
+      const urlParams = {
+        environment: searchParams.get('environment') || '',
+        status: searchParams.get('status') || '',
+        role: searchParams.get('role') || '',
+        cabinet: searchParams.get('cabinet') || '',
+        keyword: ''
+      };
       const [data, statsData] = await Promise.all([
-        serverApi.getAll(filters),
+        serverApi.getAll(urlParams),
         serverApi.getStats()
       ]);
       setServers(data);
@@ -296,19 +304,14 @@ export function ServersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [searchParams]);
 
   // 当 URL 参数变化时，获取服务器
-  const prevUrlRef = useRef('');
   useEffect(() => {
-    const currentUrl = searchParams.toString();
-    if (currentUrl !== prevUrlRef.current) {
-      prevUrlRef.current = currentUrl;
-      fetchServers();
-    }
+    fetchServers();
   }, [searchParams, fetchServers]);
 
-  // 内部 filters 变化时获取服务器
+  // 内部 filters 变化时获取服务器（仅在没有 URL 参数时）
   useEffect(() => {
     if (!hasUrlParams) {
       fetchServers();
@@ -340,13 +343,17 @@ export function ServersPage() {
   }, [stats]);
 
   const handleCategoryClick = (type: 'environment' | 'role' | 'status', value: string) => {
-    if (type === 'environment') {
-      setFilters((prev: FilterState) => ({ ...prev, environment: prev.environment === value ? '' : value }));
-    } else if (type === 'role') {
-      setFilters((prev: FilterState) => ({ ...prev, role: prev.role === value ? '' : value }));
-    } else if (type === 'status') {
-      setFilters((prev: FilterState) => ({ ...prev, status: prev.status === value ? '' : value }));
+    const newParams = new URLSearchParams(searchParams);
+    const currentValue = newParams.get(type) || '';
+    
+    // 切换：如果已选中则取消，否则选中
+    if (currentValue === value) {
+      newParams.delete(type);
+    } else {
+      newParams.set(type, value);
     }
+    
+    setSearchParams(newParams);
   };
 
   const handleSelectAll = () => {
@@ -523,7 +530,7 @@ export function ServersPage() {
           {/* 概览统计卡片 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div 
-              onClick={() => setFilters((prev: FilterState) => ({ ...prev, environment: '', status: '', role: '' }))}
+              onClick={() => setSearchParams({})}
               className="bg-background-card border border-background-border rounded-xl p-4 hover:border-primary/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -537,7 +544,7 @@ export function ServersPage() {
               </div>
             </div>
             <div 
-              onClick={() => setFilters((prev: FilterState) => ({ ...prev, environment: '', role: '' }))}
+              onClick={() => setSearchParams({ status: 'online' })}
               className="bg-background-card border border-background-border rounded-xl p-4 hover:border-status-online/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -551,7 +558,7 @@ export function ServersPage() {
               </div>
             </div>
             <div 
-              onClick={() => setFilters((prev: FilterState) => ({ ...prev, environment: '', role: '' }))}
+              onClick={() => setSearchParams({ status: 'offline' })}
               className="bg-background-card border border-background-border rounded-xl p-4 hover:border-status-offline/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -649,9 +656,17 @@ export function ServersPage() {
                 {categoryStats.cabinets.slice(0, 10).map((item) => (
                   <button
                     key={item.cabinet}
-                    onClick={() => setFilters((prev: FilterState) => ({ ...prev, cabinet: prev.cabinet === item.cabinet ? '' : item.cabinet }))}
+                    onClick={() => {
+                      const newParams = new URLSearchParams(searchParams);
+                      if (newParams.get('cabinet') === item.cabinet) {
+                        newParams.delete('cabinet');
+                      } else {
+                        newParams.set('cabinet', item.cabinet);
+                      }
+                      setSearchParams(newParams);
+                    }}
                     className={`px-2 py-1 rounded-md text-xs whitespace-nowrap transition-colors ${
-                      filters.cabinet === item.cabinet
+                      searchParams.get('cabinet') === item.cabinet
                         ? 'bg-amber-500 text-white'
                         : 'bg-background-card border border-background-border text-slate-400 hover:border-amber-500/50 hover:text-white'
                     }`}
@@ -753,10 +768,18 @@ export function ServersPage() {
       {/* 筛选栏 */}
       <div className="bg-background-card border border-background-border rounded-xl p-4">
         <div className="flex flex-wrap gap-4">
-          {/* 环境筛选 */}
+          {/* 环境筛选 - 直接使用 URL 参数驱动 */}
           <select
-            value={filters.environment}
-            onChange={(e) => setFilters((prev: FilterState) => ({ ...prev, environment: e.target.value }))}
+            value={searchParams.get('environment') || ''}
+            onChange={(e) => {
+              const newParams = new URLSearchParams(searchParams);
+              if (e.target.value) {
+                newParams.set('environment', e.target.value);
+              } else {
+                newParams.delete('environment');
+              }
+              setSearchParams(newParams);
+            }}
             className="bg-background border border-background-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
           >
             <option value="">全部环境</option>
@@ -765,10 +788,18 @@ export function ServersPage() {
             ))}
           </select>
 
-          {/* 状态筛选 */}
+          {/* 状态筛选 - 直接使用 URL 参数驱动 */}
           <select
-            value={filters.status}
-            onChange={(e) => setFilters((prev: FilterState) => ({ ...prev, status: e.target.value }))}
+            value={searchParams.get('status') ?? ''}
+            onChange={(e) => {
+              const newParams = new URLSearchParams(searchParams);
+              if (e.target.value) {
+                newParams.set('status', e.target.value);
+              } else {
+                newParams.delete('status');
+              }
+              setSearchParams(newParams);
+            }}
             className="bg-background border border-background-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
           >
             <option value="">全部状态</option>
@@ -783,10 +814,18 @@ export function ServersPage() {
             </optgroup>
           </select>
 
-          {/* 角色筛选 */}
+          {/* 角色筛选 - 直接使用 URL 参数驱动 */}
           <select
-            value={filters.role}
-            onChange={(e) => setFilters((prev: FilterState) => ({ ...prev, role: e.target.value }))}
+            value={searchParams.get('role') || ''}
+            onChange={(e) => {
+              const newParams = new URLSearchParams(searchParams);
+              if (e.target.value) {
+                newParams.set('role', e.target.value);
+              } else {
+                newParams.delete('role');
+              }
+              setSearchParams(newParams);
+            }}
             className="bg-background border border-background-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
           >
             <option value="">全部角色</option>
@@ -795,10 +834,18 @@ export function ServersPage() {
             ))}
           </select>
 
-          {/* 机柜筛选 */}
+          {/* 机柜筛选 - 直接使用 URL 参数驱动 */}
           <select
-            value={filters.cabinet}
-            onChange={(e) => setFilters((prev: FilterState) => ({ ...prev, cabinet: e.target.value }))}
+            value={searchParams.get('cabinet') || ''}
+            onChange={(e) => {
+              const newParams = new URLSearchParams(searchParams);
+              if (e.target.value) {
+                newParams.set('cabinet', e.target.value);
+              } else {
+                newParams.delete('cabinet');
+              }
+              setSearchParams(newParams);
+            }}
             className="bg-background border border-background-border rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
           >
             <option value="">全部机柜</option>
