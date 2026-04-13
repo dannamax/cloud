@@ -427,7 +427,7 @@ export function DashboardPage() {
                                     setSelectedModel('全部');
                                   }}
                                 >
-                                  全部型号 ({brand.total})
+                                  全部 ({brand.total})
                                 </div>
                                 {brandModels.map((model) => (
                                   <div
@@ -497,10 +497,10 @@ export function DashboardPage() {
                   <span className="text-slate-500">
                     {viewMode === 'brand' ? (
                       selectedModel === '全部' 
-                        ? `${selectedBrand} 全部型号 共 ${modelDistribution.total} 台服务器，${modelDistribution.dist.length} 种角色`
-                        : `${selectedBrand} - ${selectedModel} 共 ${modelDistribution.total} 台服务器，${modelDistribution.dist.length} 种角色`
+                        ? `${selectedBrand} 全部型号 ${modelDistribution.total} 台服务器，${modelDistribution.dist.length} 种角色`
+                        : `${selectedBrand} - ${selectedModel} ${modelDistribution.total} 台服务器，${modelDistribution.dist.length} 种角色`
                     ) : (
-                      `${selectedProductRole} 角色 共 ${
+                      `${selectedProductRole} 角色 ${
                         stats?.allServers?.filter((s: any) => (s.role || '未分配').split('/')[0].trim() === selectedProductRole).length || 0
                       } 台服务器`
                     )}
@@ -1022,12 +1022,9 @@ function BrandPieChartInner({ pieData, selectedBrand, selectedModel, total, onCe
             width: '100px',
             height: '80px'
           }}>
-            <div>厂商</div>
-            <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{selectedBrand}</div>
-            <div style={{ marginTop: '4px' }}>型号</div>
+            <div>{selectedBrand}</div>
             <div style={{ color: '#fff', fontSize: '11px' }}>{selectedModel}</div>
-            <div style={{ marginTop: '4px' }}>共</div>
-            <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{total} 台</div>
+            <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', marginTop: '4px' }}>{total}</div>
           </div>
         </div>
       </div>
