@@ -414,71 +414,115 @@ export function DashboardPage() {
                     </div>
 
                     {/* 右侧饼图 */}
-                    <div className="flex-1 h-[26rem]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart margin={{ top: 30, right: 30, bottom: 30, left: 30 }}>
-                          <Pie
-                            data={pieData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={70}
-                            outerRadius={90}
-                            paddingAngle={2}
-                            dataKey="count"
-                            labelLine={true}
-                            label={({ role, percent, count, cx, cy, midAngle, outerRadius }) => {
-                              const RADIAN = Math.PI / 180;
-                              const startX = cx + (outerRadius + 5) * Math.cos(-midAngle * RADIAN);
-                              const startY = cy + (outerRadius + 5) * Math.sin(-midAngle * RADIAN);
-                              const isRight = Math.cos(-midAngle * RADIAN) > 0;
-                              const lineLength = 100;
-                              const labelRadius = outerRadius + lineLength;
-                              const endX = cx + labelRadius * Math.cos(-midAngle * RADIAN);
-                              const endY = cy + labelRadius * Math.sin(-midAngle * RADIAN);
-                              const textX = endX + (isRight ? 8 : -8);
-                              
-                              return (
-                                <g>
-                                  <line x1={startX} y1={startY} x2={endX} y2={endY} stroke="#64748B" strokeWidth={1} />
-                                  <text
-                                    x={textX}
-                                    y={endY}
-                                    fill="#94A3B8"
-                                    fontSize={12}
-                                    textAnchor={isRight ? 'start' : 'end'}
-                                    dominantBaseline="middle"
-                                  >
-                                    {role}: {count}台 ({percent}%)
-                                  </text>
-                                </g>
-                              );
-                            }}
-                          >
-                            {pieData.map((entry, index) => (
-                              <Cell 
-                                key={`cell-${index}`} 
-                                fill={entry.color} 
-                                className="cursor-pointer hover:opacity-80"
-                                onClick={() => {
-                                  setSelectedRole({ role: entry.role, model_name: selectedModel, brand: selectedBrand });
-                                  setRoleDetailModal(true);
-                                }}
-                              />
+                    <div className="flex-1 flex flex-col">
+                      {/* 饼图容器 - 使用相对定位作为中心内容的参照 */}
+                      <div className="h-[24rem] relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={pieData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={50}
+                              outerRadius={65}
+                              paddingAngle={2}
+                              dataKey="count"
+                              labelLine={true}
+                              label={({ role, percent, count, cx, cy, midAngle, outerRadius }) => {
+                                const RADIAN = Math.PI / 180;
+                                const startX = cx + (outerRadius + 5) * Math.cos(-midAngle * RADIAN);
+                                const startY = cy + (outerRadius + 5) * Math.sin(-midAngle * RADIAN);
+                                const isRight = Math.cos(-midAngle * RADIAN) > 0;
+                                const lineLength = 80;
+                                const labelRadius = outerRadius + lineLength;
+                                const endX = cx + labelRadius * Math.cos(-midAngle * RADIAN);
+                                const endY = cy + labelRadius * Math.sin(-midAngle * RADIAN);
+                                const textX = endX + (isRight ? 8 : -8);
+                                
+                                return (
+                                  <g>
+                                    <line x1={startX} y1={startY} x2={endX} y2={endY} stroke="#64748B" strokeWidth={1} />
+                                    <text
+                                      x={textX}
+                                      y={endY}
+                                      fill="#94A3B8"
+                                      fontSize={11}
+                                      textAnchor={isRight ? 'start' : 'end'}
+                                      dominantBaseline="middle"
+                                    >
+                                      {role}: {count}台 ({percent}%)
+                                    </text>
+                                  </g>
+                                );
+                              }}
+                            >
+                              {pieData.map((entry, index) => (
+                                <Cell 
+                                  key={`cell-${index}`} 
+                                  fill={entry.color} 
+                                  className="cursor-pointer hover:opacity-80"
+                                  onClick={() => {
+                                    setSelectedRole({ role: entry.role, model_name: selectedModel, brand: selectedBrand });
+                                    setRoleDetailModal(true);
+                                  }}
+                                />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                        {/* 中心汇总内容 - 绝对定位真正居中 */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            color: '#94A3B8', 
+                            fontSize: '10px', 
+                            textAlign: 'center',
+                            width: '100px',
+                            height: '80px'
+                          }}>
+                            <div>厂商</div>
+                            <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{selectedBrand}</div>
+                            <div style={{ marginTop: '4px' }}>型号</div>
+                            <div style={{ color: '#fff', fontSize: '11px' }}>{selectedModel}</div>
+                            <div style={{ marginTop: '4px' }}>共</div>
+                            <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{total} 台</div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* 饼图下方数据表格 */}
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-700">
+                              <th className="text-left py-2 px-3 text-slate-400 font-medium">
+                                <span className="flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+                                  角色
+                                </span>
+                              </th>
+                              <th className="text-right py-2 px-3 text-slate-400 font-medium">数量</th>
+                              <th className="text-right py-2 px-3 text-slate-400 font-medium">占比</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dist.map((item, idx) => (
+                              <tr key={idx} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                                <td className="py-2 px-3">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: pieColors[idx % pieColors.length] }}></span>
+                                    <span className="text-slate-300">{item.role}</span>
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-right text-white">{item.count}</td>
+                                <td className="py-2 px-3 text-right text-slate-400">{item.percent}%</td>
+                              </tr>
                             ))}
-                          </Pie>
-                          {/* 中心汇总表格 - 使用foreignObject居中 */}
-                          <foreignObject x="40%" y="42%" width="20%" height="16%">
-                            <div xmlns="http://www.w3.org/1999/xhtml" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94A3B8', fontSize: '10px', textAlign: 'center' }}>
-                              <div>厂商</div>
-                              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{selectedBrand}</div>
-                              <div style={{ marginTop: '4px' }}>型号</div>
-                              <div style={{ color: '#fff', fontSize: '11px' }}>{selectedModel}</div>
-                              <div style={{ marginTop: '4px' }}>共</div>
-                              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{total} 台</div>
-                            </div>
-                          </foreignObject>
-                        </PieChart>
-                      </ResponsiveContainer>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                   ) : (
@@ -528,12 +572,113 @@ export function DashboardPage() {
                     </div>
 
                     {/* 右侧饼图 - 显示选中角色的机型分布 */}
-                    <div className="flex-1 h-[26rem]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart margin={{ top: 30, right: 30, bottom: 30, left: 30 }}>
-                          <Pie
-                            data={(() => {
-                              // 获取选中角色的机型分布
+                    <div className="flex-1 flex flex-col">
+                      {/* 饼图容器 - 使用相对定位作为中心内容的参照 */}
+                      <div className="h-[24rem] relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={(() => {
+                                // 获取选中角色的机型分布
+                                const modelMap = new Map<string, number>();
+                                stats.allServers.forEach((s: any) => {
+                                  const role = (s.role || '未分配').split('/')[0].trim();
+                                  if (role === selectedProductRole) {
+                                    const model = ((s.brand || '') + ' ' + (s.model || '')).trim() || '未知';
+                                    modelMap.set(model, (modelMap.get(model) || 0) + 1);
+                                  }
+                                });
+                                const total = Array.from(modelMap.values()).reduce((a, b) => a + b, 0);
+                                return Array.from(modelMap.entries())
+                                  .map(([name, count]) => ({ name, count, percent: Math.round((count / total) * 100) || 0 }))
+                                  .sort((a, b) => b.count - a.count);
+                              })()}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={45}
+                              outerRadius={60}
+                              paddingAngle={2}
+                              dataKey="count"
+                              labelLine={true}
+                              label={({ name, percent, count, cx, cy, midAngle, outerRadius }) => {
+                                const RADIAN = Math.PI / 180;
+                                const startX = cx + (outerRadius + 5) * Math.cos(-midAngle * RADIAN);
+                                const startY = cy + (outerRadius + 5) * Math.sin(-midAngle * RADIAN);
+                                const isRight = Math.cos(-midAngle * RADIAN) > 0;
+                                const lineLength = 80;
+                                const labelRadius = outerRadius + lineLength;
+                                const endX = cx + labelRadius * Math.cos(-midAngle * RADIAN);
+                                const endY = cy + labelRadius * Math.sin(-midAngle * RADIAN);
+                                const textX = endX + (isRight ? 8 : -8);
+                                
+                                return (
+                                  <g>
+                                    <line x1={startX} y1={startY} x2={endX} y2={endY} stroke="#64748B" strokeWidth={1} />
+                                    <text
+                                      x={textX}
+                                      y={endY}
+                                      fill="#94A3B8"
+                                      fontSize={11}
+                                      textAnchor={isRight ? 'start' : 'end'}
+                                      dominantBaseline="middle"
+                                    >
+                                      {name}: {count}台 ({percent}%)
+                                    </text>
+                                  </g>
+                                );
+                              }}
+                            >
+                              {['#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'].map((color, index) => (
+                                <Cell 
+                                  key={`cell-${index}`} 
+                                  fill={color}
+                                  className="cursor-pointer hover:opacity-80"
+                                  onClick={() => {
+                                    setSelectedRole({ role: selectedProductRole, model_name: '', brand: '' });
+                                    setRoleDetailModal(true);
+                                  }}
+                                />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                        {/* 中心汇总内容 - 绝对定位真正居中 */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            color: '#94A3B8', 
+                            fontSize: '10px', 
+                            textAlign: 'center',
+                            width: '80px',
+                            height: '70px'
+                          }}>
+                            <div>角色</div>
+                            <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{selectedProductRole}</div>
+                            <div style={{ marginTop: '4px' }}>共</div>
+                            <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{stats?.allServers?.filter((s: any) => (s.role || '未分配').split('/')[0].trim() === selectedProductRole).length || 0} 台</div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* 饼图下方数据表格 */}
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-700">
+                              <th className="text-left py-2 px-3 text-slate-400 font-medium">
+                                <span className="flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+                                  机型
+                                </span>
+                              </th>
+                              <th className="text-right py-2 px-3 text-slate-400 font-medium">数量</th>
+                              <th className="text-right py-2 px-3 text-slate-400 font-medium">占比</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
                               const modelMap = new Map<string, number>();
                               stats.allServers.forEach((s: any) => {
                                 const role = (s.role || '未分配').split('/')[0].trim();
@@ -543,68 +688,26 @@ export function DashboardPage() {
                                 }
                               });
                               const total = Array.from(modelMap.values()).reduce((a, b) => a + b, 0);
-                              return Array.from(modelMap.entries())
+                              const modelDist = Array.from(modelMap.entries())
                                 .map(([name, count]) => ({ name, count, percent: Math.round((count / total) * 100) || 0 }))
                                 .sort((a, b) => b.count - a.count);
+                              const colors = ['#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+                              return modelDist.map((item, idx) => (
+                                <tr key={idx} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                                  <td className="py-2 px-3">
+                                    <span className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colors[idx % colors.length] }}></span>
+                                      <span className="text-slate-300">{item.name}</span>
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-white">{item.count}</td>
+                                  <td className="py-2 px-3 text-right text-slate-400">{item.percent}%</td>
+                                </tr>
+                              ));
                             })()}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={100}
-                            paddingAngle={2}
-                            dataKey="count"
-                            labelLine={true}
-                            label={({ name, percent, count, cx, cy, midAngle, outerRadius }) => {
-                              const RADIAN = Math.PI / 180;
-                              const startX = cx + (outerRadius + 5) * Math.cos(-midAngle * RADIAN);
-                              const startY = cy + (outerRadius + 5) * Math.sin(-midAngle * RADIAN);
-                              const isRight = Math.cos(-midAngle * RADIAN) > 0;
-                              const lineLength = 100;
-                              const labelRadius = outerRadius + lineLength;
-                              const endX = cx + labelRadius * Math.cos(-midAngle * RADIAN);
-                              const endY = cy + labelRadius * Math.sin(-midAngle * RADIAN);
-                              const textX = endX + (isRight ? 8 : -8);
-                              
-                              return (
-                                <g>
-                                  <line x1={startX} y1={startY} x2={endX} y2={endY} stroke="#64748B" strokeWidth={1} />
-                                  <text
-                                    x={textX}
-                                    y={endY}
-                                    fill="#94A3B8"
-                                    fontSize={12}
-                                    textAnchor={isRight ? 'start' : 'end'}
-                                    dominantBaseline="middle"
-                                  >
-                                    {name}: {count}台 ({percent}%)
-                                  </text>
-                                </g>
-                              );
-                            }}
-                          >
-                            {['#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'].map((color, index) => (
-                              <Cell 
-                                key={`cell-${index}`} 
-                                fill={color}
-                                className="cursor-pointer hover:opacity-80"
-                                onClick={() => {
-                                  setSelectedRole({ role: selectedProductRole, model_name: '', brand: '' });
-                                  setRoleDetailModal(true);
-                                }}
-                              />
-                            ))}
-                          </Pie>
-                          {/* 中心汇总 - 使用foreignObject居中 */}
-                          <foreignObject x="40%" y="42%" width="20%" height="16%">
-                            <div xmlns="http://www.w3.org/1999/xhtml" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94A3B8', fontSize: '10px', textAlign: 'center' }}>
-                              <div>角色</div>
-                              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{selectedProductRole}</div>
-                              <div style={{ marginTop: '4px' }}>共</div>
-                              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}>{stats?.allServers?.filter((s: any) => (s.role || '未分配').split('/')[0].trim() === selectedProductRole).length || 0} 台</div>
-                            </div>
-                          </foreignObject>
-                        </PieChart>
-                      </ResponsiveContainer>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                   )}
