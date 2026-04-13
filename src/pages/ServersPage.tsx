@@ -58,6 +58,7 @@ interface ColumnConfig {
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
   { key: 'checkbox', label: '选择', visible: true, width: 'w-12' },
+  { key: 'index', label: '序号', visible: true, width: 'w-16' },
   { key: 'status', label: '状态', visible: true, width: 'w-28' },
   { key: 'system_ip', label: 'IP地址', visible: true, width: 'w-32' },
   { key: 'name', label: '主机名', visible: true, width: 'w-32' },
@@ -885,6 +886,9 @@ export function ServersPage() {
                             onChange={() => handleSelect(server.id)}
                             className="w-4 h-4 rounded border-slate-600"
                           />
+                        )}
+                        {col.key === 'index' && (
+                          <span className="text-sm text-slate-500">{servers.indexOf(server) + 1}</span>
                         )}
                         {col.key === 'status' && (
                           <div className="flex items-center gap-2">
