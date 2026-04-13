@@ -270,20 +270,20 @@ export function ServersPage() {
   // 从 URL 参数初始化 filters
   const [searchParams] = useSearchParams();
 
+  // 监听 URL 参数变化来更新 filters
   useEffect(() => {
     const status = searchParams.get('status');
     const env = searchParams.get('environment');
     const role = searchParams.get('role');
 
-    if (status || env || role) {
-      setFilters(prev => ({
-        ...prev,
-        status: status || prev.status,
-        environment: env || prev.environment,
-        role: role || prev.role,
-      }));
-    }
-  }, []); // 仅在挂载时执行一次
+    setFilters(prev => ({
+      environment: env || '',
+      status: status || '',
+      role: role || '',
+      cabinet: prev.cabinet,
+      keyword: prev.keyword,
+    }));
+  }, [searchParams]);
 
   useEffect(() => {
     fetchServers();
