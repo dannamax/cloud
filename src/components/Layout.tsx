@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Server, 
-  Database, 
   History, 
   Settings, 
   LogOut,
@@ -29,7 +28,7 @@ const navItems = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { user, logout, sidebarCollapsed, toggleSidebar } = useAppStore();
+  const { user, logout, sidebarCollapsed, toggleSidebar, systemName, platformTitle } = useAppStore();
 
   return (
     <div className="flex h-screen bg-background">
@@ -38,10 +37,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <div className="h-14 flex items-center justify-center border-b border-background-border">
           {!sidebarCollapsed && (
-            <h1 className="text-lg font-semibold text-white">CMDB</h1>
+            <h1 className="text-lg font-semibold text-white">{systemName}</h1>
           )}
           {sidebarCollapsed && (
-            <span className="text-xl font-bold text-primary">C</span>
+            <span className="text-xl font-bold text-primary">{systemName[0]}</span>
           )}
         </div>
 
@@ -102,7 +101,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* 顶部Header */}
         <header className="h-14 bg-background-card border-b border-background-border flex items-center justify-between px-6">
           <div className="text-sm text-slate-400">
-            研发环境服务器管理平台
+            {platformTitle}
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-slate-400">

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Settings, Users, Database, Download, Trash2, Plus, Eye, EyeOff, Shield, Check, X, Lock } from 'lucide-react';
+import { Settings, Users, Database, Download, Trash2, Plus, Eye, EyeOff, Shield, Check, X, Lock, Info } from 'lucide-react';
 import { settingsApi, userApi } from '../services/api';
 import type { Settings as SettingsType, User } from '../types';
 import { useAppStore } from '../stores/appStore';
@@ -47,7 +47,7 @@ const ROLE_PERMISSIONS = {
 };
 
 export function SettingsPage() {
-  const { user: currentUser } = useAppStore();
+  const { user: currentUser, setSystemConfig } = useAppStore();
   const [settings, setSettings] = useState<SettingsType[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState('monitor');
@@ -85,6 +85,11 @@ export function SettingsPage() {
       ]);
       setSettings(settingsData);
       setUsers(usersData);
+      
+      // 同步系统配置到 appStore
+      const systemName = settingsData.find(s => s.key === 'system_name')?.value || 'CMDB';
+      const platformTitle = settingsData.find(s => s.key === 'platform_title')?.value || '研发环境服务器管理平台';
+      setSystemConfig(systemName, platformTitle);
     } catch (error) {
       console.error('获取数据失败:', error);
     }
@@ -203,6 +208,7 @@ export function SettingsPage() {
   };
 
   const tabs = [
+    { id: 'system', label: '系统信息', icon: Info },
     { id: 'monitor', label: '监控设置', icon: Settings },
     { id: 'users', label: '用户管理', icon: Users },
     { id: 'account', label: '账户安全', icon: Shield },
@@ -232,6 +238,56 @@ export function SettingsPage() {
           </button>
         ))}
       </div>
+
+      {/* 系统信息 */}
+      {activeTab === 'system' && (
+        <div className="bg-background-card border border-background-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-6">系统信息配置</h2>
+          <p className="text-sm text-slate-500 mb-6">配置系统在界面中显示的名称，修改后将立即生效</p>
+          <div className="space-y-6 max-w-xl">
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">系统名称</label>
+              <p className="text-xs text-slate-500 mb-2">显示在侧边栏顶部，用于标识系统</p>
+              <input
+                type="text"
+                id="system_name"
+                className="w-full bg-background border border-background-border rounded-lg px-4 py-2.5 text-white"
+                defaultValue={settings.find(s => s.key === 'system_name')?.value || 'CMDB'}
+                onBlur={(e) => handleSettingUpdate('system_name', e.target.value)}
+                placeholder="请输入系统名称"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">平台标题</label>
+              <p className="text-xs text-slate-500 mb-2">显示在顶部导航栏，用于描述平台功能</p>
+              <input
+                type="text"
+                id="platform_title"
+                className="w-full bg-background border border-background-border rounded-lg px-4 py-2.5 text-white"
+                defaultValue={settings.find(s => s.key === 'platform_title')?.value || '研发环境服务器管理平台'}
+                onBlur={(e) => handleSettingUpdate('platform_title', e.target.value)}
+                placeholder="请输入平台标题"
+              />
+            </div>
+            <div className="pt-4">
+              <button
+                onClick={async () => {
+                  const systemName = (document.getElementById('system_name') as HTMLInputElement).value;
+                  const platformTitle = (document.getElementById('platform_title') as HTMLInputElement).value;
+                  if (systemName && platformTitle) {
+                    const { setSystemConfig } = useAppStore.getState();
+                    setSystemConfig(systemName, platformTitle);
+                    alert('系统配置已更新');
+                  }
+                }}
+                className="px-4 py-2 bg-primary rounded-lg text-white hover:bg-primary/90 transition-colors"
+              >
+                保存并应用
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 监控设置 */}
       {activeTab === 'monitor' && (

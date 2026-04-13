@@ -215,6 +215,8 @@ export function initDatabase() {
   const settings = [
     { key: 'heartbeat_interval', value: '300', description: '心跳检测间隔（秒）' },
     { key: 'offline_threshold', value: '600', description: '离线告警阈值（秒）' },
+    { key: 'system_name', value: 'CMDB', description: '系统名称（侧边栏显示）' },
+    { key: 'platform_title', value: '研发环境服务器管理平台', description: '平台标题（顶部显示）' },
   ];
   
   const insertSetting = db.prepare(`

@@ -24,6 +24,11 @@ interface AppState {
   // UI状态
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
+  
+  // 系统配置
+  systemName: string;
+  platformTitle: string;
+  setSystemConfig: (systemName: string, platformTitle: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -53,12 +58,19 @@ export const useAppStore = create<AppState>()(
   // UI状态
   sidebarCollapsed: false,
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
+  // 系统配置
+  systemName: 'CMDB',
+  platformTitle: '研发环境服务器管理平台',
+  setSystemConfig: (systemName, platformTitle) => set({ systemName, platformTitle }),
     }),
     {
       name: 'cmdb-storage',
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        systemName: state.systemName,
+        platformTitle: state.platformTitle,
       }),
     }
   )
