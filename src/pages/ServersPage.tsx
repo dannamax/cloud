@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -265,9 +266,31 @@ export function ServersPage() {
     }
   };
 
+  // 从 URL 参数初始化 filters
+  const [searchParams] = useSearchParams();
+  const [initialized, setInitialized] = useState(false);
+
   useEffect(() => {
-    fetchServers();
-  }, [filters]);
+    const status = searchParams.get('status');
+    const env = searchParams.get('environment');
+    const role = searchParams.get('role');
+
+    if (!initialized) {
+      setFilters(prev => ({
+        ...prev,
+        status: status || prev.status,
+        environment: env || prev.environment,
+        role: role || prev.role,
+      }));
+      setInitialized(true);
+    }
+  }, [searchParams, initialized]);
+
+  useEffect(() => {
+    if (initialized) {
+      fetchServers();
+    }
+  }, [filters, initialized]);
 
   const environments = useMemo(() => 
     stats?.byEnvironment?.map(e => e.environment) || [], 

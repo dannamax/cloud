@@ -257,6 +257,7 @@ export function DashboardPage() {
       icon: Server,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
+      onClick: () => navigate('/servers'),
     },
     {
       title: '在线',
@@ -264,6 +265,7 @@ export function DashboardPage() {
       icon: Activity,
       color: 'text-status-online',
       bgColor: 'bg-status-online/10',
+      onClick: () => navigate('/servers?status=online'),
     },
     {
       title: '离线',
@@ -271,6 +273,7 @@ export function DashboardPage() {
       icon: ServerCrash,
       color: 'text-status-offline',
       bgColor: 'bg-status-offline/10',
+      onClick: () => navigate('/servers?status=offline'),
     },
     {
       title: '异动中',
@@ -278,6 +281,7 @@ export function DashboardPage() {
       icon: Clock,
       color: 'text-status-warning',
       bgColor: 'bg-status-warning/10',
+      onClick: () => navigate('/servers'),
     },
     {
       title: '环境数量',
@@ -285,6 +289,7 @@ export function DashboardPage() {
       icon: Layers,
       color: 'text-status-online',
       bgColor: 'bg-status-online/10',
+      onClick: () => navigate('/servers'),
     },
     {
       title: '机柜数量',
@@ -292,6 +297,7 @@ export function DashboardPage() {
       icon: Database,
       color: 'text-status-warning',
       bgColor: 'bg-status-warning/10',
+      onClick: () => navigate('/servers'),
     },
   ];
 
@@ -316,7 +322,8 @@ export function DashboardPage() {
         {statCards.map((card) => (
           <div
             key={card.title}
-            className="bg-background-card border border-background-border rounded-xl p-5 hover:border-primary/30 transition-colors"
+            onClick={card.onClick}
+            className="bg-background-card border border-background-border rounded-xl p-5 hover:border-primary/30 transition-colors cursor-pointer"
           >
             <div className="flex items-center justify-between">
               <div>
