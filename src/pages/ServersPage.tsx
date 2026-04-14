@@ -618,12 +618,12 @@ export function ServersPage() {
             </div>
 
             {/* 按角色分类 - 紧凑横向 */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 flex-shrink-0 w-24">
+            <div className="flex items-start gap-2">
+              <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-1">
                 <HardDrive className="w-3.5 h-3.5 text-purple-500" />
                 <span className="text-xs font-medium text-slate-300">角色</span>
               </div>
-              <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
+              <div className={`flex gap-1.5 ${expandedRoles ? 'flex-wrap content-start' : 'overflow-x-auto pb-1'} flex-1`}>
                 {categoryStats.roles.slice(0, expandedRoles ? undefined : 12).map((item) => (
                   <button
                     key={item.role}
@@ -663,12 +663,12 @@ export function ServersPage() {
             </div>
 
             {/* 按机柜分类 - 紧凑横向 */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 flex-shrink-0 w-24">
+            <div className="flex items-start gap-2">
+              <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-1">
                 <Building2 className="w-3.5 h-3.5 text-amber-500" />
                 <span className="text-xs font-medium text-slate-300">机柜</span>
               </div>
-              <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
+              <div className={`flex gap-1.5 ${expandedCabinets ? 'flex-wrap content-start' : 'overflow-x-auto pb-1'} flex-1`}>
                 {categoryStats.cabinets.slice(0, expandedCabinets ? undefined : 10).map((item) => (
                   <button
                     key={item.cabinet}
