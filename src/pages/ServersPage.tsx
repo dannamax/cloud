@@ -157,6 +157,8 @@ export function ServersPage() {
   const [columns, setColumns] = useState<ColumnConfig[]>(loadColumnConfig);
   const [sqlHistory, setSqlHistory] = useState<SqlHistoryItem[]>(loadSqlHistory);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  const [expandedRoles, setExpandedRoles] = useState(false);
+  const [expandedCabinets, setExpandedCabinets] = useState(false);
 
   // 添加到历史记录
   const addToHistory = (field: string, oldValue: string, newValue: string, count: number, sql: string, whereConditions: string) => {
@@ -622,7 +624,7 @@ export function ServersPage() {
                 <span className="text-xs font-medium text-slate-300">角色</span>
               </div>
               <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
-                {categoryStats.roles.slice(0, 12).map((item) => (
+                {categoryStats.roles.slice(0, expandedRoles ? undefined : 12).map((item) => (
                   <button
                     key={item.role}
                     onClick={() => handleCategoryClick('role', item.role)}
@@ -636,9 +638,23 @@ export function ServersPage() {
                   </button>
                 ))}
                 {categoryStats.roles.length > 12 && (
-                  <span className="px-2 py-1 text-xs text-slate-500 whitespace-nowrap">
-                    +{categoryStats.roles.length - 12}
-                  </span>
+                  <button
+                    onClick={() => setExpandedRoles(!expandedRoles)}
+                    className="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-background-card border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:border-purple-500/50 transition-colors flex items-center gap-1"
+                    title={expandedRoles ? '收起' : `展开更多（还有 ${categoryStats.roles.length - 12} 个）`}
+                  >
+                    {expandedRoles ? (
+                      <>
+                        <span>收起</span>
+                        <ChevronUp className="w-3 h-3" />
+                      </>
+                    ) : (
+                      <>
+                        <span>+{categoryStats.roles.length - 12}</span>
+                        <ChevronDown className="w-3 h-3" />
+                      </>
+                    )}
+                  </button>
                 )}
                 {categoryStats.roles.length === 0 && (
                   <span className="text-xs text-slate-500">暂无数据</span>
@@ -653,7 +669,7 @@ export function ServersPage() {
                 <span className="text-xs font-medium text-slate-300">机柜</span>
               </div>
               <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
-                {categoryStats.cabinets.slice(0, 10).map((item) => (
+                {categoryStats.cabinets.slice(0, expandedCabinets ? undefined : 10).map((item) => (
                   <button
                     key={item.cabinet}
                     onClick={() => {
@@ -675,9 +691,23 @@ export function ServersPage() {
                   </button>
                 ))}
                 {categoryStats.cabinets.length > 10 && (
-                  <span className="px-2 py-1 text-xs text-slate-500 whitespace-nowrap">
-                    +{categoryStats.cabinets.length - 10}
-                  </span>
+                  <button
+                    onClick={() => setExpandedCabinets(!expandedCabinets)}
+                    className="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-background-card border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/50 transition-colors flex items-center gap-1"
+                    title={expandedCabinets ? '收起' : `展开更多（还有 ${categoryStats.cabinets.length - 10} 个）`}
+                  >
+                    {expandedCabinets ? (
+                      <>
+                        <span>收起</span>
+                        <ChevronUp className="w-3 h-3" />
+                      </>
+                    ) : (
+                      <>
+                        <span>+{categoryStats.cabinets.length - 10}</span>
+                        <ChevronDown className="w-3 h-3" />
+                      </>
+                    )}
+                  </button>
                 )}
                 {categoryStats.cabinets.length === 0 && (
                   <span className="text-xs text-slate-500">暂无数据</span>
