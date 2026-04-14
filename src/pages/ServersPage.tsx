@@ -874,12 +874,20 @@ export function ServersPage() {
       {selectedIds.length > 0 && (
         <div className="sticky top-0 z-40 bg-background-card/95 backdrop-blur-sm border border-primary/30 rounded-lg px-4 py-3 flex items-center gap-4 shadow-lg shadow-primary/10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center">
+            <button
+              onClick={() => setSelectedIds([])}
+              className="w-8 h-8 bg-primary/20 hover:bg-primary/30 rounded-lg flex items-center justify-center transition-colors cursor-pointer group"
+              title="点击取消选择"
+            >
               <CheckCircle className="w-4 h-4 text-primary" />
-            </div>
-            <span className="text-sm text-white font-medium">
+            </button>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="text-sm text-white font-medium hover:text-primary transition-colors cursor-pointer"
+              title="点击取消选择全部"
+            >
               已选择 <span className="text-primary">{selectedIds.length}</span> 台服务器
-            </span>
+            </button>
           </div>
           <div className="flex-1 flex items-center gap-2">
             <button
