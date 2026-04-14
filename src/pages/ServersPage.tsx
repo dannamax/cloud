@@ -159,6 +159,7 @@ export function ServersPage() {
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [expandedRoles, setExpandedRoles] = useState(false);
   const [expandedCabinets, setExpandedCabinets] = useState(false);
+  const [expandedEnvironments, setExpandedEnvironments] = useState(false);
 
   // 添加到历史记录
   const addToHistory = (field: string, oldValue: string, newValue: string, count: number, sql: string, whereConditions: string) => {
@@ -592,13 +593,13 @@ export function ServersPage() {
           {/* 分类按钮紧凑横向排列 */}
           <div className="flex flex-col gap-3">
             {/* 按环境分类 - 紧凑横向 */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 flex-shrink-0 w-24">
+            <div className="flex items-start gap-2">
+              <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-1">
                 <Layers className="w-3.5 h-3.5 text-primary" />
                 <span className="text-xs font-medium text-slate-300">环境</span>
               </div>
-              <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
-                {categoryStats.environments.map((item) => (
+              <div className={`flex gap-1.5 ${expandedEnvironments ? 'flex-wrap content-start' : 'overflow-x-auto pb-1'} flex-1`}>
+                {categoryStats.environments.slice(0, expandedEnvironments ? undefined : 8).map((item) => (
                   <button
                     key={item.environment}
                     onClick={() => handleCategoryClick('environment', item.environment)}
@@ -611,6 +612,25 @@ export function ServersPage() {
                     {item.environment}({item.count})
                   </button>
                 ))}
+                {categoryStats.environments.length > 8 && (
+                  <button
+                    onClick={() => setExpandedEnvironments(!expandedEnvironments)}
+                    className="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-background-card border border-primary/30 text-primary hover:bg-primary/20 hover:border-primary/50 transition-colors flex items-center gap-1"
+                    title={expandedEnvironments ? '收起' : `展开更多（还有 ${categoryStats.environments.length - 8} 个）`}
+                  >
+                    {expandedEnvironments ? (
+                      <>
+                        <span>收起</span>
+                        <ChevronUp className="w-3 h-3" />
+                      </>
+                    ) : (
+                      <>
+                        <span>+{categoryStats.environments.length - 8}</span>
+                        <ChevronDown className="w-3 h-3" />
+                      </>
+                    )}
+                  </button>
+                )}
                 {categoryStats.environments.length === 0 && (
                   <span className="text-xs text-slate-500">暂无数据</span>
                 )}
