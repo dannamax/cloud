@@ -356,21 +356,21 @@ export function ServersPage() {
     setSearchParams(newParams);
   };
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     if (selectedIds.length === servers.length) {
       setSelectedIds([]);
     } else {
       setSelectedIds(servers.map(s => s.id));
     }
-  };
+  }, [selectedIds.length, servers]);
 
-  const handleSelect = (id: number) => {
+  const handleSelect = useCallback((id: number) => {
     setSelectedIds(prev => 
       prev.includes(id) 
         ? prev.filter(i => i !== id)
         : [...prev, id]
     );
-  };
+  }, []);
 
   const handleBatchStatus = async (status: string) => {
     if (selectedIds.length === 0) return;
