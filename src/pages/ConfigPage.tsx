@@ -20,6 +20,130 @@ import {
 import { cabinetApi, environmentApi, serverApi, customColumnApi, settingsApi, roleTypeApi, CustomColumn } from '../services/api';
 import type { Cabinet, Environment, Server, RoleType } from '../types';
 
+// 智能日期输入组件
+function SmartDateInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [inputValue, setInputValue] = useState(value);
+  const [isValid, setIsValid] = useState(true);
+  
+  useEffect(() => {
+    setInputValue(value);
+    if (value) {
+      const date = new Date(value);
+      setIsValid(!isNaN(date.getTime()) && date.getFullYear() >= 1900 && date.getFullYear() <= 2100);
+    }
+  }, [value]);
+  
+  const formatInput = (val: string): string => {
+    const nums = val.replace(/\D/g, '');
+    if (nums.length === 0) return '';
+    if (nums.length <= 4) return nums;
+    if (nums.length <= 6) return `${nums.slice(0, 4)}-${nums.slice(4)}`;
+    return `${nums.slice(0, 4)}-${nums.slice(4, 6)}-${nums.slice(6, 8)}`;
+  };
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatInput(e.target.value);
+    setInputValue(formatted);
+    
+    if (formatted.length === 10) {
+      const date = new Date(formatted);
+      if (!isNaN(date.getTime()) && date.getFullYear() >= 1900 && date.getFullYear() <= 2100) {
+        setIsValid(true);
+        onChange(formatted);
+      } else {
+        setIsValid(false);
+      }
+    } else if (formatted.length === 0) {
+      setIsValid(true);
+      onChange('');
+    } else {
+      setIsValid(false);
+    }
+  };
+  
+  // 补全不完整日期
+  const completeDate = (val: string): string => {
+    const nums = val.replace(/\D/g, '');
+    if (nums.length === 0) return val;
+    
+    // 根据输入的数字位数智能补全
+    let year: string, month: string, day: string;
+    
+    if (nums.length <= 2) {
+      // 1-2位：补全年份前缀为20，月和日默认01
+      year = nums.length === 1 ? `200${nums}` : `20${nums}`;
+      month = '01';
+      day = '01';
+    } else if (nums.length === 3) {
+      // 3位：前1位是年份(补20)，后2位是月，日默认01
+      year = `20${nums[0]}`;
+      month = nums.slice(1, 3).padStart(2, '0');
+      day = '01';
+    } else if (nums.length === 4) {
+      // 4位：完整年份，月和日默认01
+      year = nums;
+      month = '01';
+      day = '01';
+    } else if (nums.length === 5) {
+      // 5位：前4位是年份，后1位是月(补0)，日默认01
+      year = nums.slice(0, 4);
+      month = `0${nums[4]}`;
+      day = '01';
+    } else if (nums.length === 6) {
+      // 6位：前4位是年份，后2位是月，日默认01
+      year = nums.slice(0, 4);
+      month = nums.slice(4, 6);
+      day = '01';
+    } else if (nums.length === 7) {
+      // 7位：前4位是年份，中间2位是月，后1位是日(补0)
+      year = nums.slice(0, 4);
+      month = nums.slice(4, 6);
+      day = `0${nums[6]}`;
+    } else {
+      // 8位及以上：完整解析
+      year = nums.slice(0, 4);
+      month = nums.slice(4, 6);
+      day = nums.slice(6, 8);
+    }
+    
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleBlur = () => {
+    // 补全不完整日期：如 2099-01-1 → 2099-01-01
+    if (inputValue.length > 0 && inputValue.length < 10) {
+      const completed = completeDate(inputValue);
+      if (completed !== inputValue) {
+        setInputValue(completed);
+        onChange(completed);
+        return;
+      }
+    }
+    
+    if (inputValue.length === 10 && isValid) {
+      const date = new Date(inputValue);
+      const normalized = date.toISOString().split('T')[0];
+      setInputValue(normalized);
+      onChange(normalized);
+    }
+  };
+  
+  return (
+    <input
+      type="text"
+      value={inputValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      placeholder="YYYY-MM-DD"
+      maxLength={10}
+      className={`bg-background border rounded px-1 py-0.5 text-xs text-slate-300 ${
+        !isValid ? 'border-red-500' : 'border-background-border'
+      }`}
+      style={{ width: 85, maxWidth: 85 }}
+    />
+  );
+}
+
 // 基础字段定义（系统字段）
 const BASE_FIELDS = [
   { key: 'name', label: '环境名称', editable: false },
@@ -1013,13 +1137,9 @@ export function ConfigPage() {
                               ))}
                             </select>
                           ) : col.column_type === 'date' ? (
-                            <input
-                              type="date"
+                            <SmartDateInput
                               value={env.customFields?.[col.column_key] || ''}
-                              onChange={(e) => handleCustomFieldChange(env.id, col.column_key, e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="bg-background border border-background-border rounded px-1 py-0.5 text-xs text-slate-300"
-                              style={{ width: colWidth - 8, maxWidth: colWidth - 8 }}
+                              onChange={(v) => handleCustomFieldChange(env.id, col.column_key, v)}
                             />
                           ) : col.column_type === 'number' ? (
                             <input

@@ -608,11 +608,9 @@ export function ServerDetailPage() {
                     <div>
                       <label className="block text-sm text-slate-400 mb-1">采购日期</label>
                       {editing ? (
-                        <input
-                          type="date"
+                        <SmartDateInput
                           value={editData?.purchase_date || ''}
-                          onChange={(e) => updateField('purchase_date', e.target.value)}
-                          className="w-full bg-background-card border border-background-border rounded-lg px-3 py-2 text-white"
+                          onChange={(v) => updateField('purchase_date', v)}
                         />
                       ) : (
                         <p className="text-white">
@@ -805,6 +803,130 @@ function DepreciationCalculator({ purchasePrice, purchaseDate }: { purchasePrice
         <div className="p-3 bg-slate-500/20 border border-slate-500/30 rounded-lg">
           <p className="text-sm text-slate-300">该设备已折旧完毕，当前残值为 ¥0</p>
         </div>
+      )}
+</div>
+  );
+}
+
+// 智能日期输入组件
+function SmartDateInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [inputValue, setInputValue] = useState(value);
+  const [isValid, setIsValid] = useState(true);
+  
+  useEffect(() => {
+    setInputValue(value);
+    if (value) {
+      const date = new Date(value);
+      setIsValid(!isNaN(date.getTime()) && date.getFullYear() >= 1900 && date.getFullYear() <= 2100);
+    }
+  }, [value]);
+  
+  // 格式化输入为 YYYY-MM-DD
+  const formatInput = (val: string): string => {
+    // 移除非数字字符
+    const nums = val.replace(/\D/g, '');
+    
+    if (nums.length === 0) return '';
+    if (nums.length <= 4) return nums;
+    if (nums.length <= 6) return `${nums.slice(0, 4)}-${nums.slice(4)}`;
+    return `${nums.slice(0, 4)}-${nums.slice(4, 6)}-${nums.slice(6, 8)}`;
+  };
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatInput(e.target.value);
+    setInputValue(formatted);
+    
+    // 验证并更新
+    if (formatted.length === 10) {
+      const date = new Date(formatted);
+      if (!isNaN(date.getTime()) && date.getFullYear() >= 1900 && date.getFullYear() <= 2100) {
+        setIsValid(true);
+        onChange(formatted);
+      } else {
+        setIsValid(false);
+      }
+    } else if (formatted.length === 0) {
+      setIsValid(true);
+      onChange('');
+    } else {
+      setIsValid(false);
+    }
+  };
+  
+  // 补全不完整日期
+  const completeDate = (val: string): string => {
+    const nums = val.replace(/\D/g, '');
+    if (nums.length === 0) return val;
+    
+    let year: string, month: string, day: string;
+    
+    if (nums.length <= 2) {
+      year = nums.length === 1 ? `200${nums}` : `20${nums}`;
+      month = '01';
+      day = '01';
+    } else if (nums.length === 3) {
+      year = `20${nums[0]}`;
+      month = nums.slice(1, 3).padStart(2, '0');
+      day = '01';
+    } else if (nums.length === 4) {
+      year = nums;
+      month = '01';
+      day = '01';
+    } else if (nums.length === 5) {
+      year = nums.slice(0, 4);
+      month = `0${nums[4]}`;
+      day = '01';
+    } else if (nums.length === 6) {
+      year = nums.slice(0, 4);
+      month = nums.slice(4, 6);
+      day = '01';
+    } else if (nums.length === 7) {
+      year = nums.slice(0, 4);
+      month = nums.slice(4, 6);
+      day = `0${nums[6]}`;
+    } else {
+      year = nums.slice(0, 4);
+      month = nums.slice(4, 6);
+      day = nums.slice(6, 8);
+    }
+    
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleBlur = () => {
+    // 补全不完整日期：如 2099-01-1 → 2099-01-01
+    if (inputValue.length > 0 && inputValue.length < 10) {
+      const completed = completeDate(inputValue);
+      if (completed !== inputValue) {
+        setInputValue(completed);
+        onChange(completed);
+        return;
+      }
+    }
+    // 失焦时如果格式正确则规范化显示
+    if (inputValue.length === 10 && isValid) {
+      const date = new Date(inputValue);
+      const normalized = date.toISOString().split('T')[0];
+      setInputValue(normalized);
+      onChange(normalized);
+    }
+  };
+  
+  return (
+    <div>
+      <input
+        type="text"
+        value={inputValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        placeholder="YYYY-MM-DD"
+        maxLength={10}
+        className={`w-full bg-background-card border rounded-lg px-3 py-2 text-white placeholder-slate-500 ${
+          !isValid ? 'border-red-500 focus:border-red-500' : 'border-background-border focus:border-primary'
+        }`}
+      />
+      {!isValid && (
+        <p className="text-red-400 text-xs mt-1">日期格式不正确，请输入 YYYY-MM-DD（如 2020-01-15）</p>
       )}
     </div>
   );
