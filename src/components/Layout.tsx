@@ -11,7 +11,8 @@ import {
   Building2,
   Cog,
   ClipboardList,
-  Layers
+  Layers,
+  DollarSign
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 
@@ -20,6 +21,7 @@ const navItems = [
   { path: '/servers', icon: Server, label: '服务器' },
   { path: '/cabinets', icon: Building2, label: '机柜视图' },
   { path: '/config', icon: Cog, label: '环境规划' },
+  { path: '/cost', icon: DollarSign, label: '成本管理' },
   { path: '/history', icon: History, label: '变更历史' },
   { path: '/audit', icon: ClipboardList, label: '操作审计' },
   { path: '/versions', icon: Layers, label: '版本管理' },

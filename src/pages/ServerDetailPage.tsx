@@ -12,7 +12,9 @@ import {
   X,
   Cpu,
   Settings,
-  FileText
+  FileText,
+  DollarSign,
+  TrendingDown
 } from 'lucide-react';
 import { serverApi, changeLogApi, roleTypeApi } from '../services/api';
 import type { Server, ChangeLog, RoleType } from '../types';
@@ -30,13 +32,14 @@ const onlineStatusColors: Record<string, string> = {
   'unknown': 'text-slate-400',
 };
 
-type InfoTab = 'basic' | 'hardware' | 'network' | 'operation';
+type InfoTab = 'basic' | 'hardware' | 'network' | 'operation' | 'cost';
 
 const tabConfig = [
   { key: 'basic' as InfoTab, label: '基础信息', icon: Settings },
   { key: 'hardware' as InfoTab, label: '硬件信息', icon: Cpu },
   { key: 'network' as InfoTab, label: '网络信息', icon: Wifi },
   { key: 'operation' as InfoTab, label: '运营信息', icon: Activity },
+  { key: 'cost' as InfoTab, label: '成本信息', icon: DollarSign },
 ];
 
 export function ServerDetailPage() {
@@ -570,6 +573,80 @@ export function ServerDetailPage() {
                   ) : (
                     <p className="text-slate-400 whitespace-pre-wrap">{server.remark || '暂无备注'}</p>
                   )}
+</div>
+              </div>
+            )}
+
+            {/* 成本信息 */}
+            {activeTab === 'cost' && (
+              <div>
+                <h3 className="text-base font-medium text-white mb-4 flex items-center gap-2">
+                  <DollarSign size={18} className="text-primary" />
+                  采购信息
+                </h3>
+                <div className="bg-background rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-slate-400 mb-1">采购价格（元）</label>
+                      {editing ? (
+                        <input
+                          type="number"
+                          value={editData?.purchase_price || ''}
+                          onChange={(e) => updateField('purchase_price', parseFloat(e.target.value) || 0)}
+                          className="w-full bg-background-card border border-background-border rounded-lg px-3 py-2 text-white"
+                          placeholder="请输入采购价格"
+                        />
+                      ) : (
+                        <p className="text-white text-lg font-semibold">
+                          {server?.purchase_price && server?.purchase_price > 0 
+                            ? `¥${server.purchase_price.toLocaleString('zh-CN')}` 
+                            : <span className="text-slate-500 text-sm">未填写</span>
+                          }
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-400 mb-1">采购日期</label>
+                      {editing ? (
+                        <input
+                          type="date"
+                          value={editData?.purchase_date || ''}
+                          onChange={(e) => updateField('purchase_date', e.target.value)}
+                          className="w-full bg-background-card border border-background-border rounded-lg px-3 py-2 text-white"
+                        />
+                      ) : (
+                        <p className="text-white">
+                          {server?.purchase_date 
+                            ? server.purchase_date 
+                            : <span className="text-slate-500">未填写</span>
+                          }
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* 折旧计算结果 */}
+                  {server?.purchase_price && server?.purchase_price > 0 && server?.purchase_date && (
+                    <div className="mt-6 pt-4 border-t border-background-border">
+                      <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+                        <TrendingDown size={14} className="text-primary" />
+                        折旧计算（4年线性折旧）
+                      </h4>
+                      <DepreciationCalculator 
+                        purchasePrice={server.purchase_price}
+                        purchaseDate={server.purchase_date}
+                      />
+                    </div>
+                  )}
+                  
+{/* 未填写时的提示 */}
+                  {(!server?.purchase_price || server?.purchase_price <= 0 || !server?.purchase_date) && (
+                    <div className="mt-6 p-4 bg-background-card rounded-lg border border-primary/30">
+                      <p className="text-sm text-slate-400">
+                        提示：填写采购价格和采购日期后，系统将自动计算设备折旧值，用于成本管理分析。
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -656,6 +733,77 @@ export function ServerDetailPage() {
               <button onClick={handleChangeStatus} className="px-6 py-2 bg-primary rounded-lg text-white">确认</button>
             </div>
           </div>
+        </div>
+      )}
+</div>
+  );
+}
+
+// 折旧计算器组件
+function DepreciationCalculator({ purchasePrice, purchaseDate }: { purchasePrice: number; purchaseDate: string }) {
+  const now = new Date();
+  const purchase = new Date(purchaseDate);
+  
+  if (isNaN(purchase.getTime())) {
+    return <p className="text-sm text-slate-500">采购日期无效</p>;
+  }
+  
+  const monthsDiff = Math.max(0, (now.getFullYear() - purchase.getFullYear()) * 12 + (now.getMonth() - purchase.getMonth()));
+  const yearsUsed = monthsDiff / 12;
+  const totalMonths = 4 * 12;
+  
+  const monthlyDepreciation = purchasePrice / totalMonths;
+  const depreciatedValue = Math.min(purchasePrice, monthlyDepreciation * monthsDiff);
+  const residualValue = Math.max(0, purchasePrice - depreciatedValue);
+  const progress = Math.min(100, (monthsDiff / totalMonths) * 100);
+  const remainingMonths = Math.max(0, totalMonths - monthsDiff);
+  const fullyDepreciated = yearsUsed >= 4;
+  
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-background-card rounded-lg p-3">
+          <p className="text-xs text-slate-400">已使用</p>
+          <p className="text-lg font-semibold text-white">{yearsUsed.toFixed(1)} 年</p>
+          <p className="text-xs text-slate-500">{monthsDiff} 个月</p>
+        </div>
+        <div className="bg-background-card rounded-lg p-3">
+          <p className="text-xs text-slate-400">每月折旧</p>
+          <p className="text-lg font-semibold text-primary">¥{monthlyDepreciation.toFixed(0)}</p>
+          <p className="text-xs text-slate-500">/ 月</p>
+        </div>
+        <div className="bg-background-card rounded-lg p-3">
+          <p className="text-xs text-slate-400">当前残值</p>
+          <p className="text-lg font-semibold text-green-400">¥{residualValue.toLocaleString('zh-CN')}</p>
+          <p className="text-xs text-slate-500">剩余 {remainingMonths} 个月</p>
+        </div>
+        <div className="bg-background-card rounded-lg p-3">
+          <p className="text-xs text-slate-400">已折旧</p>
+          <p className="text-lg font-semibold text-orange-400">¥{depreciatedValue.toLocaleString('zh-CN')}</p>
+          <p className="text-xs text-slate-500">{progress.toFixed(1)}%</p>
+        </div>
+      </div>
+      
+      <div>
+        <div className="flex justify-between text-xs text-slate-400 mb-1">
+          <span>折旧进度</span>
+          <span>{progress.toFixed(1)}%</span>
+        </div>
+        <div className="h-2 bg-background-card rounded-full overflow-hidden">
+          <div 
+            className={`h-full rounded-full transition-all ${fullyDepreciated ? 'bg-slate-500' : 'bg-gradient-to-r from-primary to-orange-400'}`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-slate-500 mt-1">
+          <span>采购: {purchaseDate}</span>
+          <span>{fullyDepreciated ? '已折旧完毕' : `预计 ${new Date(purchase.getTime() + 4 * 365.25 * 24 * 60 * 60 * 1000).toLocaleDateString('zh-CN')} 折旧完毕`}</span>
+        </div>
+      </div>
+      
+      {fullyDepreciated && (
+        <div className="p-3 bg-slate-500/20 border border-slate-500/30 rounded-lg">
+          <p className="text-sm text-slate-300">该设备已折旧完毕，当前残值为 ¥0</p>
         </div>
       )}
     </div>

@@ -140,17 +140,17 @@ router.post('/', (req, res) => {
   const {
     name, environment, system_ip, manage_ip, oob_ip, mac_address,
     cabinet, u_position, u_height, sn, brand, model, cpu, memory, disk, network_card,
-    role, role_type, tags, status, remark
+    role, role_type, tags, status, remark, purchase_price, purchase_date
   } = req.body;
 
   const result = db.prepare(`
     INSERT INTO servers (name, environment, system_ip, manage_ip, oob_ip, mac_address,
-      cabinet, u_position, u_height, sn, brand, model, cpu, memory, disk, network_card, role, role_type, tags, status, remark)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      cabinet, u_position, u_height, sn, brand, model, cpu, memory, disk, network_card, role, role_type, tags, status, remark, purchase_price, purchase_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     name, environment, system_ip, manage_ip, oob_ip, mac_address,
     cabinet, u_position || 0, u_height || 2, sn, brand, model, cpu, memory, disk, network_card,
-    role, role_type, tags, status || '待上架', remark
+    role, role_type, tags, status || '待上架', remark, purchase_price || 0, purchase_date || null
   );
 
   const server = db.prepare('SELECT * FROM servers WHERE id = ?').get(result.lastInsertRowid);
@@ -172,7 +172,8 @@ router.put('/:id', (req, res) => {
   const allowedFields = [
     'name', 'environment', 'system_ip', 'manage_ip', 'oob_ip', 'mac_address',
     'cabinet', 'u_position', 'u_height', 'sn', 'brand', 'model', 'cpu', 'memory',
-    'disk', 'network_card', 'role', 'role_type', 'tags', 'status', 'remark'
+    'disk', 'network_card', 'role', 'role_type', 'tags', 'status', 'remark',
+    'purchase_price', 'purchase_date'
   ];
 
   const setClauses: string[] = [];

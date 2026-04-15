@@ -11,6 +11,7 @@ import { CabinetsPage } from './pages/CabinetsPage';
 import { ConfigPage } from './pages/ConfigPage';
 import { AuditPage } from './pages/AuditPage';
 import { VersionsPage } from './pages/VersionsPage';
+import { CostPage } from './pages/CostPage';
 import { useAppStore } from './stores/appStore';
 import { userApi } from './services/api';
 
@@ -69,6 +70,11 @@ function App() {
         <Route path="/config" element={
           <ProtectedRoute>
             <ConfigPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/cost" element={
+          <ProtectedRoute>
+            <CostPage />
           </ProtectedRoute>
         } />
         <Route path="/history" element={

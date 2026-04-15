@@ -85,6 +85,8 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { key: 'network_card', label: '网卡', visible: false, width: 'w-24' },
   { key: 'tags', label: '标签', visible: false, width: 'w-28' },
   { key: 'remark', label: '备注', visible: false, width: 'w-32' },
+  { key: 'purchase_price', label: '采购价格', visible: false, width: 'w-28' },
+  { key: 'purchase_date', label: '采购日期', visible: false, width: 'w-28' },
   { key: 'actions', label: '操作', visible: true, width: 'w-20' },
 ];
 
@@ -1075,6 +1077,14 @@ export function ServersPage() {
                         {col.key === 'network_card' && <span className="text-sm text-slate-400">{server.network_card || '-'}</span>}
                         {col.key === 'tags' && <span className="text-sm text-slate-400">{server.tags || '-'}</span>}
                         {col.key === 'remark' && <span className="text-sm text-slate-400 truncate max-w-[150px]">{server.remark || '-'}</span>}
+                        {col.key === 'purchase_price' && (
+                          <span className="text-sm text-green-400">
+                            {server.purchase_price && server.purchase_price > 0 
+                              ? `¥${server.purchase_price.toLocaleString('zh-CN')}` 
+                              : '-'}
+                          </span>
+                        )}
+                        {col.key === 'purchase_date' && <span className="text-sm text-slate-400">{server.purchase_date || '-'}</span>}
                         {col.key === 'actions' && (
                           <div className="flex items-center gap-2">
                             <button

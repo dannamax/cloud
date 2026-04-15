@@ -330,3 +330,103 @@ export const roleTypeApi = {
   delete: (id: number) =>
     axios.delete(`${API_BASE}/role-types/${id}`).then(r => r.data),
 };
+
+// 成本管理API
+export interface CostOverview {
+  summary: {
+    deviceCost: {
+      totalServers: number;
+      serversWithPrice: number;
+      totalPurchasePrice: number;
+      totalResidualValue: number;
+      totalDepreciatedValue: number;
+      depreciationProgress: number;
+    };
+    cabinetCost: {
+      totalCabinets: number;
+      totalServers: number;
+      annualFeePerCabinet: number;
+      totalAnnualFee: number;
+    };
+    totalCost: {
+      currentValue: number;
+      totalInvested: number;
+    };
+  };
+  serverCostDetails: Array<{
+    id: number;
+    name: string;
+    purchasePrice: number;
+    purchaseDate: string;
+    residualValue: number;
+    depreciatedValue: number;
+    cabinet: string;
+    environment: string;
+  }>;
+  cabinetCosts: Array<{
+    cabinet: string;
+    environment: string;
+    serverCount: number;
+    annualFee: number;
+  }>;
+  cabinetByEnv: Array<{
+    environment: string;
+    cabinetCount: number;
+    serverCount: number;
+    annualFee: number;
+  }>;
+}
+
+export interface ServerCostDetail {
+  id: number;
+  name: string;
+  brand: string;
+  model: string;
+  purchasePrice: number;
+  purchaseDate: string;
+  residualValue: number;
+  depreciatedValue: number;
+  depreciationProgress: number;
+  yearsUsed: number;
+  monthsUsed: number;
+  monthlyDepreciation: number;
+  remainingMonths: number;
+  fullyDepreciated: boolean;
+  cabinet: string;
+  environment: string;
+  cabinetAnnualFee: number;
+}
+
+export interface CabinetCostDetail {
+  cabinet: string;
+  environment: string;
+  serverCount: number;
+  totalPurchasePrice: number;
+  avgPurchasePrice: number;
+  totalResidualValue: number;
+  totalDepreciatedValue: number;
+  cabinetAnnualFee: number;
+  totalAnnualCost: number;
+}
+
+export interface EnvironmentCostDetail {
+  environment: string;
+  serverCount: number;
+  cabinetCount: number;
+  totalPurchasePrice: number;
+  totalResidualValue: number;
+  totalDepreciatedValue: number;
+  cabinetAnnualFee: number;
+  totalAnnualCost: number;
+}
+
+export const costApi = {
+  getOverview: () => axios.get<CostOverview>(`${API_BASE}/cost/overview`).then(r => r.data),
+  
+  getServerCost: (id: number) => axios.get<ServerCostDetail>(`${API_BASE}/cost/server/${id}`).then(r => r.data),
+  
+  getCabinetCosts: (environment?: string) => 
+    axios.get<CabinetCostDetail[]>(`${API_BASE}/cost/cabinets`, { params: { environment } }).then(r => r.data),
+  
+  getByEnvironment: () => axios.get<EnvironmentCostDetail[]>(`${API_BASE}/cost/by-environment`).then(r => r.data),
+};

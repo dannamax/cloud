@@ -23,6 +23,8 @@ export interface Server {
   online_status: 'online' | 'offline' | 'unknown';
   last_heartbeat: string;
   remark: string;
+  purchase_price: number;
+  purchase_date: string;
   created_at: string;
   updated_at: string;
 }

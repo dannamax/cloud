@@ -37,6 +37,8 @@ export function initDatabase() {
       online_status TEXT DEFAULT 'unknown',
       last_heartbeat TEXT,
       remark TEXT,
+      purchase_price REAL DEFAULT 0,
+      purchase_date TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -197,6 +199,20 @@ export function initDatabase() {
     if (!hasRoleType) {
       db.exec('ALTER TABLE servers ADD COLUMN role_type TEXT DEFAULT ""');
       console.log('已为 servers 表添加 role_type 列');
+    }
+    
+    // 检查并添加 purchase_price 列（如果不存在）
+    const hasPurchasePrice = columns.some(col => col.name === 'purchase_price');
+    if (!hasPurchasePrice) {
+      db.exec('ALTER TABLE servers ADD COLUMN purchase_price REAL DEFAULT 0');
+      console.log('已为 servers 表添加 purchase_price 列');
+    }
+    
+    // 检查并添加 purchase_date 列（如果不存在）
+    const hasPurchaseDate = columns.some(col => col.name === 'purchase_date');
+    if (!hasPurchaseDate) {
+      db.exec('ALTER TABLE servers ADD COLUMN purchase_date TEXT');
+      console.log('已为 servers 表添加 purchase_date 列');
     }
   } catch (e) {
     // 列可能已存在，忽略错误
