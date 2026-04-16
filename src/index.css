@@ -224,6 +224,13 @@
   font-size: 0.875rem !important;
 }
 
+/* 左侧导航栏 hover 状态改为浅蓝色 */
+.light nav button:hover,
+.light .hover\:bg-background-border:hover {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
