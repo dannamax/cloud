@@ -255,6 +255,12 @@
   color: #1e40af !important;
 }
 
+/* 仪表盘角色-机型分布区域按钮选中状态改为浅蓝色 */
+.light .bg-primary\/30,
+.light .bg-primary\/20 {
+  background-color: #bfdbfe !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
