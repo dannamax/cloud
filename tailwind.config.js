@@ -4,30 +4,22 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#3B82F6',
-          50: '#EBF2FE',
-          100: '#D7E6FD',
-          200: '#AFCDFB',
-          300: '#87B4F9',
-          400: '#5F9BF7',
-          500: '#3B82F6',
-          600: '#0B61E4',
-          700: '#084AB0',
-          800: '#06347C',
-          900: '#031D48',
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
         },
         background: {
-          DEFAULT: '#0F172A',
-          card: '#1E293B',
-          border: '#334155',
-          foreground: '#F1F5F9',
+          DEFAULT: 'hsl(var(--background))',
+          card: 'hsl(var(--card))',
+          border: 'hsl(var(--border))',
+          foreground: 'hsl(var(--foreground))',
         },
         foreground: {
-          DEFAULT: '#F1F5F9',
+          DEFAULT: 'hsl(var(--foreground))',
         },
         status: {
           online: '#22C55E',
@@ -35,38 +27,38 @@ export default {
           warning: '#F59E0B',
         },
         border: {
-          DEFAULT: '#334155',
-          foreground: '#F1F5F9',
+          DEFAULT: 'hsl(var(--border))',
+          foreground: 'hsl(var(--foreground))',
         },
         input: {
-          DEFAULT: '#334155',
+          DEFAULT: 'hsl(var(--input))',
         },
         ring: {
-          DEFAULT: '#3B82F6',
+          DEFAULT: 'hsl(var(--ring))',
         },
         card: {
-          DEFAULT: '#1E293B',
-          foreground: '#F1F5F9',
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
         },
         muted: {
-          DEFAULT: '#334155',
-          foreground: '#94A3B8',
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
         },
         accent: {
-          DEFAULT: '#334155',
-          foreground: '#F1F5F9',
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
         },
         destructive: {
-          DEFAULT: '#EF4444',
-          foreground: '#F1F5F9',
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
         },
         popover: {
-          DEFAULT: '#1E293B',
-          foreground: '#F1F5F9',
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
         },
         secondary: {
-          DEFAULT: '#334155',
-          foreground: '#F1F5F9',
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
         },
       },
       fontFamily: {

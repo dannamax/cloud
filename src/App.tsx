@@ -26,7 +26,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  const { setUser, isAuthenticated, logout } = useAppStore();
+  const { setUser, isAuthenticated, logout, setTheme } = useAppStore();
+
+  useEffect(() => {
+    // 初始化主题
+    const storedTheme = localStorage.getItem('cmdb-storage');
+    if (storedTheme) {
+      try {
+        const parsed = JSON.parse(storedTheme);
+        if (parsed.state?.theme === 'light') {
+          document.documentElement.classList.add('light');
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, []);
 
   useEffect(() => {
     // 验证 persisted 的登录状态是否仍然有效
