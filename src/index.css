@@ -231,6 +231,13 @@
   color: #1e40af !important;
 }
 
+/* 左侧导航栏选中状态改为浅蓝色 */
+.light nav button.bg-primary,
+.light .bg-primary\/20 {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
