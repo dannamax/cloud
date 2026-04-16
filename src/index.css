@@ -215,6 +215,15 @@
   color: #334155 !important;
 }
 
+/* 服务器详情页左右两侧字体大小统一（以右侧为标准） */
+.light .bg-background-card td:first-child {
+  font-size: 0.875rem !important;
+}
+
+.light .bg-background-card td:last-child {
+  font-size: 0.875rem !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
