@@ -59,6 +59,31 @@
   --ring: 217 91% 50%;
 }
 
+/* 亮色主题下强制文字颜色 */
+.light {
+  color-scheme: light;
+}
+
+.light .text-white {
+  color: #1e293b !important;
+}
+
+.light .text-slate-300,
+.light .text-slate-400,
+.light .text-slate-500,
+.light .text-slate-600 {
+  color: #334155 !important;
+}
+
+.light .bg-slate-500\/10,
+.light .bg-slate-500\/20 {
+  background-color: rgba(100, 116, 139, 0.1) !important;
+}
+
+.light .border-slate-500\/30 {
+  border-color: rgba(100, 116, 139, 0.3) !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;

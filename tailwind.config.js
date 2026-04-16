@@ -60,6 +60,19 @@ export default {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
         },
+        // 主题感知的 slate 颜色
+        slate: {
+          DEFAULT: 'hsl(var(--foreground))',
+          50: 'hsl(var(--background))',
+          100: 'hsl(var(--muted))',
+          200: 'hsl(var(--muted))',
+          300: 'hsl(var(--muted-foreground))',
+          400: 'hsl(var(--muted-foreground))',
+          500: 'hsl(var(--muted-foreground))',
+        },
+        // 主题感知的 white/black
+        white: 'hsl(var(--foreground))',
+        black: 'hsl(var(--background))',
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', 'sans-serif'],
