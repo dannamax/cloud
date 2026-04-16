@@ -196,6 +196,25 @@
   color: #1e40af !important;
 }
 
+/* 服务器详情页左侧标签栏统一为深黑色 */
+.light .text-slate-400,
+.light .text-slate-500,
+.light .text-xs.text-slate-400,
+.light .text-sm.text-slate-400 {
+  color: #1e293b !important;
+}
+
+/* 详情页标签文字统一黑色 */
+.light .text-white {
+  color: #0f172a !important;
+}
+
+/* 服务器详情页左侧导航栏文字适配 */
+.light nav .text-slate-400,
+.light nav .text-slate-300 {
+  color: #334155 !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
