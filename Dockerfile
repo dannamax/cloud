@@ -7,12 +7,15 @@ FROM docker.m.daocloud.io/library/node:20-alpine AS builder
 
 WORKDIR /app
 
+# 安装编译依赖（better-sqlite3 需要）
+RUN apk add --no-cache python3 make g++
+
 # 设置npm镜像（解决依赖下载问题）
 RUN npm config set registry https://registry.npmmirror.com
 
 # 复制依赖文件并安装
 COPY package*.json ./
-RUN npm ci --only=production=false || npm install --legacy-peer-deps
+RUN npm ci --include=dev || npm install --legacy-peer-deps
 
 # 复制源代码
 COPY . .
