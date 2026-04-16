@@ -1,0 +1,49 @@
+# CMDB Platform Docker Compose 配置
+# 使用方法: docker-compose up -d
+
+version: '3.8'
+
+services:
+  cmdb:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: cmdb-platform
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+      - PORT=3213
+      - TZ=Asia/Shanghai
+    volumes:
+      # 持久化数据目录
+      - cmdb-data:/app/data
+      # 持久化日志目录
+      - cmdb-logs:/app/logs
+    networks:
+      - cmdb-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  cmdb-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/cmdb
+  cmdb-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/cmdb
+
+networks:
+  cmdb-network:
+    driver: bridge

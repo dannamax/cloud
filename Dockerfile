@@ -1,89 +1,63 @@
-# CMDB Platform Dockerfile (多阶段构建)
-# 减小镜像体积，优化构建速度
+# CMDB Platform Dockerfile
+# 多阶段构建：构建阶段 + 运行阶段
 
-#==============================================================================
-# 阶段 1: 构建阶段
-#==============================================================================
-# 使用 Node 18 (兼容 CentOS 7 的 glibc 2.17)
-FROM docker.1ms.run/library/node:18-alpine AS builder
-
-# 更换为国内镜像源
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
-    echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/main" >> /etc/apk/repositories && \
-    echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/community" >> /etc/apk/repositories
-
-# 安装 Python 和编译工具
-RUN apk add --no-cache python3 make g++ && ln -sf python3 /usr/bin/python
+# ===== 构建阶段 =====
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# 配置 npm 国内镜像源和 node-gyp 环境变量
-ENV npm_config_registry=https://registry.npmmirror.com
-ENV npm_config_disturl=https://npmmirror.com/mirrors/node
-ENV npm_config_node_gyp=https://npmmirror.com/mirrors/node-gyp
-
-# 安装依赖 (利用 Docker 缓存)
+# 安装依赖（使用 npm install 缓存）
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm ci --only=production=false
 
 # 复制源代码
 COPY . .
 
-# TypeScript 类型检查
-RUN npx tsc --noEmit || true
-
 # 构建前端
 RUN npm run build
 
-#==============================================================================
-# 阶段 2: 生产阶段
-#==============================================================================
-FROM docker.1ms.run/library/node:18-alpine AS production
+# ===== 运行阶段 =====
+FROM node:20-alpine AS runner
 
-# 更换为国内镜像源
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
-    echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/main" >> /etc/apk/repositories && \
-    echo "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.18/community" >> /etc/apk/repositories
-
-# 安装 Python 和编译工具
-RUN apk add --no-cache python3 make g++ && ln -sf python3 /usr/bin/python
-
-# 安全: 创建非 root 用户
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 -G nodejs
+# 安装时区数据和 nginx
+RUN apk add --no-cache \
+    tzdata \
+    nginx \
+    curl \
+    && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
 
 WORKDIR /app
 
-# 配置 npm 国内镜像源和 node-gyp 环境变量
-ENV npm_config_registry=https://registry.npmmirror.com
-ENV npm_config_disturl=https://npmmirror.com/mirrors/node
-ENV npm_config_node_gyp=https://npmmirror.com/mirrors/node-gyp
-
-# 只复制生产依赖
-COPY package*.json ./
-RUN npm install --omit=dev --legacy-peer-deps
-
 # 复制构建产物
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --chown=nodejs:nodejs server ./server
-COPY --chown=nodejs:nodejs docker-entrypoint.sh ./
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/package.json ./package.json
 
-# 创建数据目录并设置权限
-RUN chmod +x docker-entrypoint.sh && \
-    mkdir -p data uploads && chown -R nodejs:nodejs /app
+# 复制 nginx 配置
+COPY nginx.conf /etc/nginx/http.d/default.conf
 
-# 切换到非 root 用户
-USER nodejs
+# 安装生产依赖
+RUN npm ci --only=production --omit=dev
 
-# 端口
-EXPOSE 3000
+# 创建数据目录
+RUN mkdir -p /app/data /app/logs
 
-# 环境变量
-ENV NODE_ENV=production
-ENV PORT=3000
+# 创建非 root 用户
+RUN addgroup -g 1001 -S cmdb && \
+    adduser -S cmdb -u 1001 -G cmdb && \
+    chown -R cmdb:cmdb /app
+
+USER cmdb
+
+# 暴露端口
+EXPOSE 80
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+    CMD curl -f http://localhost/health || exit 1
 
-# 启动命令
-CMD ["./docker-entrypoint.sh"]
+# 启动 nginx 和后端服务
+CMD sh -c "nginx -g 'daemon off;' & \
+    sleep 3 && \
+    exec node --env-file=.env server/index.js"
