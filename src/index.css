@@ -263,6 +263,13 @@
   color: #1e40af !important;
 }
 
+/* 创建快照按钮背景改为浅蓝色 */
+.light .bg-indigo-500,
+.light .bg-indigo-600,
+.light .hover\:bg-indigo-600:hover {
+  background-color: #60a5fa !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
