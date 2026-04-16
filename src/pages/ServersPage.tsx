@@ -34,6 +34,15 @@ import { serverApi, importApi } from '../services/api';
 import type { Server, ServerStats } from '../types';
 import { useAppStore } from '../stores/appStore';
 
+// 排序方向类型
+type SortDirection = 'asc' | 'desc' | null;
+
+// 排序状态
+interface SortState {
+  column: string | null;
+  direction: SortDirection;
+}
+
 const statusColors: Record<string, string> = {
   '已上架': 'bg-status-online/20 text-status-online',
   '待上架': 'bg-slate-500/20 text-slate-400',
@@ -162,6 +171,51 @@ export function ServersPage() {
   const [expandedRoles, setExpandedRoles] = useState(false);
   const [expandedCabinets, setExpandedCabinets] = useState(false);
   const [expandedEnvironments, setExpandedEnvironments] = useState(false);
+
+  // 排序状态
+  const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
+
+  // 排序处理器
+  const handleSort = (column: string) => {
+    setSortState(prev => {
+      if (prev.column !== column) {
+        return { column, direction: 'asc' };
+      }
+      if (prev.direction === 'asc') {
+        return { column, direction: 'desc' };
+      }
+      return { column: null, direction: null };
+    });
+  };
+
+  // 排序后的服务器数据
+  const sortedServers = useMemo(() => {
+    if (!sortState.column || !sortState.direction) {
+      return servers;
+    }
+    
+    return [...servers].sort((a, b) => {
+      const aVal = (a as any)[sortState.column!];
+      const bVal = (b as any)[sortState.column!];
+      
+      // 处理空值
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      
+      // 数字比较
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortState.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      
+      // 字符串比较
+      const aStr = String(aVal).toLowerCase();
+      const bStr = String(bVal).toLowerCase();
+      const comparison = aStr.localeCompare(bStr, 'zh-CN');
+      
+      return sortState.direction === 'asc' ? comparison : -comparison;
+    });
+  }, [servers, sortState]);
 
   // 添加到历史记录
   const addToHistory = (field: string, oldValue: string, newValue: string, count: number, sql: string, whereConditions: string) => {
@@ -362,12 +416,12 @@ export function ServersPage() {
   };
 
   const handleSelectAll = useCallback(() => {
-    if (selectedIds.length === servers.length) {
+    if (selectedIds.length === sortedServers.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(servers.map(s => s.id));
+      setSelectedIds(sortedServers.map(s => s.id));
     }
-  }, [selectedIds.length, servers]);
+  }, [selectedIds.length, sortedServers]);
 
   const handleSelect = useCallback((id: number) => {
     setSelectedIds(prev => 
@@ -994,15 +1048,40 @@ export function ServersPage() {
             <thead>
               <tr className="border-b border-background-border">
                 {visibleColumns.map(col => (
-                  <th key={col.key} className={`text-left p-4 text-sm font-medium text-slate-400 ${col.width || ''}`}>
-                    {col.key === 'checkbox' ? (
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.length === servers.length && servers.length > 0}
-                        onChange={handleSelectAll}
-                        className="w-4 h-4 rounded border-slate-600"
-                      />
-                    ) : col.label}
+                  <th 
+                    key={col.key} 
+                    className={`text-left p-4 text-sm font-medium text-slate-400 ${col.width || ''} ${
+                      col.key !== 'checkbox' && col.key !== 'actions' ? 'cursor-pointer hover:bg-background-border/50 select-none' : ''
+                    }`}
+                    onClick={() => col.key !== 'checkbox' && col.key !== 'actions' && handleSort(col.key)}
+                  >
+                    <div className="flex items-center gap-1">
+                      {col.key === 'checkbox' ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.length === sortedServers.length && sortedServers.length > 0}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 rounded border-slate-600"
+                        />
+                      ) : (
+                        <>
+                          <span>{col.label}</span>
+                          {col.key !== 'checkbox' && col.key !== 'actions' && (
+                            <span className="ml-1">
+                              {sortState.column === col.key ? (
+                                sortState.direction === 'asc' ? (
+                                  <ChevronUp className="w-4 h-4 text-primary" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-primary" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="w-3 h-3 text-slate-600" />
+                              )}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -1014,14 +1093,14 @@ export function ServersPage() {
                     加载中...
                   </td>
                 </tr>
-              ) : servers.length === 0 ? (
+              ) : sortedServers.length === 0 ? (
                 <tr>
                   <td colSpan={visibleColumns.length} className="p-8 text-center text-slate-500">
                     暂无数据
                   </td>
                 </tr>
               ) : (
-                servers.map((server) => (
+                sortedServers.map((server) => (
                   <tr
                     key={server.id}
                     className="border-b border-background-border hover:bg-background-border/50 transition-colors cursor-pointer"
@@ -1035,10 +1114,11 @@ export function ServersPage() {
                             checked={selectedIds.includes(server.id)}
                             onChange={() => handleSelect(server.id)}
                             className="w-4 h-4 rounded border-slate-600"
+                            onClick={e => e.stopPropagation()}
                           />
                         )}
                         {col.key === 'index' && (
-                          <span className="text-sm text-slate-500">{servers.indexOf(server) + 1}</span>
+                          <span className="text-sm text-slate-500">{sortedServers.indexOf(server) + 1}</span>
                         )}
                         {col.key === 'status' && (
                           <div className="flex items-center gap-2">
@@ -1105,10 +1185,10 @@ export function ServersPage() {
         </div>
 
         {/* 分页 */}
-        {servers.length > 0 && (
+        {sortedServers.length > 0 && (
           <div className="p-4 border-t border-background-border flex items-center justify-between">
             <span className="text-sm text-slate-400">
-              共 {servers.length} 条记录，已显示 {visibleColumns.length} 列
+              共 {sortedServers.length} 条记录，已显示 {visibleColumns.length} 列 {sortState.column && <span className="text-primary ml-2">（已排序：{sortState.direction === 'asc' ? '↑' : '↓'}）</span>}
             </span>
           </div>
         )}
