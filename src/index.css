@@ -238,6 +238,16 @@
   color: #1e40af !important;
 }
 
+/* 成本管理/折旧规则区域文字改为黑色 */
+.light .bg-background table td {
+  color: #0f172a !important;
+}
+
+.light .bg-background .text-slate-400,
+.light .bg-background .text-slate-500 {
+  color: #334155 !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
