@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDatabase } from '../database.js';
+import { getDatabase, getLocalTime } from '../database.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -197,7 +197,8 @@ router.put('/:id', (req, res) => {
     return res.json(existing);
   }
 
-  setClauses.push("updated_at = datetime('now')");
+  setClauses.push("updated_at = ?");
+  values.push(getLocalTime());
   values.push(req.params.id);
 
   db.prepare(`UPDATE servers SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
@@ -269,8 +270,8 @@ router.post('/:id/change', (req, res) => {
   
   // 更新服务器状态
   db.prepare(`
-    UPDATE servers SET status = ?, updated_at = datetime('now') WHERE id = ?
-  `).run(after_status, req.params.id);
+    UPDATE servers SET status = ?, updated_at = ? WHERE id = ?
+  `).run(after_status, getLocalTime(), req.params.id);
   
   // 记录变更日志
   db.prepare(`

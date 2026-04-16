@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDatabase } from '../database.js';
+import { getDatabase, getLocalTime } from '../database.js';
 
 const router = express.Router();
 
@@ -87,17 +87,22 @@ router.get('/', (req, res) => {
 router.get('/stats', (req, res) => {
   const db = getDatabase();
   
+  // 使用 JavaScript 计算日期（避免 SQLite UTC 时区问题）
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  
   // 今日操作数
   const today = db.prepare(`
     SELECT COUNT(*) as count FROM operation_logs 
-    WHERE date(created_at) = date('now')
-  `).get() as any;
+    WHERE date(created_at) = ?
+  `).get(todayStr) as any;
   
   // 本周操作数
   const week = db.prepare(`
     SELECT COUNT(*) as count FROM operation_logs 
-    WHERE created_at >= datetime('now', '-7 days')
-  `).get() as any;
+    WHERE created_at >= ?
+  `).get(weekAgo) as any;
   
   // 按操作类型统计
   const byAction = db.prepare(`

@@ -1,6 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
-import { getDatabase } from '../database.js';
+import { getDatabase, getLocalTime } from '../database.js';
 
 const router = express.Router();
 
@@ -123,17 +123,19 @@ router.put('/:id', (req, res) => {
   const existingStatus = (existing as any).status;
   const userStatus = (status && status.trim()) ? status : (existingStatus || 'active');
   
+  const now = getLocalTime();
+  
   if (password) {
     const passwordHash = md5(password);
     db.prepare(`
-      UPDATE users SET display_name = ?, role = ?, status = ?, password = ?, updated_at = datetime('now')
+      UPDATE users SET display_name = ?, role = ?, status = ?, password = ?, updated_at = ?
       WHERE id = ?
-    `).run(display_name, role, userStatus, passwordHash, req.params.id);
+    `).run(display_name, role, userStatus, passwordHash, now, req.params.id);
   } else {
     db.prepare(`
-      UPDATE users SET display_name = ?, role = ?, status = ?, updated_at = datetime('now')
+      UPDATE users SET display_name = ?, role = ?, status = ?, updated_at = ?
       WHERE id = ?
-    `).run(display_name, role, userStatus, req.params.id);
+    `).run(display_name, role, userStatus, now, req.params.id);
   }
   
   const user = db.prepare(`
@@ -201,7 +203,7 @@ router.post('/:id/change-password', (req, res) => {
 
   // 更新新密码
   const newPasswordHash = md5(newPassword);
-  db.prepare(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`).run(newPasswordHash, userId);
+  db.prepare(`UPDATE users SET password = ?, updated_at = ? WHERE id = ?`).run(newPasswordHash, getLocalTime(), userId);
 
   res.json({ success: true, message: '密码修改成功' });
 });

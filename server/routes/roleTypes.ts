@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDatabase } from '../database.js';
+import { getDatabase, getLocalTime } from '../database.js';
 
 const router = express.Router();
 
@@ -52,13 +52,14 @@ router.put('/:id', (req, res) => {
   }
 
   db.prepare(`
+    db.prepare(`
     UPDATE role_types SET
       display_name = COALESCE(?, display_name),
       color = COALESCE(?, color),
       icon = COALESCE(?, icon),
       sort_order = COALESCE(?, sort_order),
       description = COALESCE(?, description),
-      updated_at = datetime('now')
+      updated_at = ?
     WHERE id = ?
   `).run(
     display_name,
@@ -66,6 +67,7 @@ router.put('/:id', (req, res) => {
     icon,
     sort_order,
     description,
+    getLocalTime(),
     req.params.id
   );
 

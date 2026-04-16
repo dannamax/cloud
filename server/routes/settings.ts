@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDatabase } from '../database.js';
+import { getDatabase, getLocalTime } from '../database.js';
 
 const router = express.Router();
 
@@ -28,16 +28,18 @@ router.put('/:key', (req, res) => {
   const { value } = req.body;
   const { key } = req.params;
   
+  const now = getLocalTime();
+  
   const existing = db.prepare('SELECT * FROM settings WHERE key = ?').get(key);
   if (existing) {
     db.prepare(`
-      UPDATE settings SET value = ?, updated_at = datetime('now')
+      UPDATE settings SET value = ?, updated_at = ?
       WHERE key = ?
-    `).run(value, key);
+    `).run(value, now, key);
   } else {
     db.prepare(`
-      INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
-    `).run(key, value);
+      INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+    `).run(key, value, now);
   }
   
   const setting = db.prepare('SELECT * FROM settings WHERE key = ?').get(key);

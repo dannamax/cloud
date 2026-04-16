@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDatabase } from '../database.js';
+import { getDatabase, getLocalTime } from '../database.js';
 
 const router = express.Router();
 
@@ -68,9 +68,9 @@ router.post('/sync-with-servers', (req, res) => {
         // 更新已有机柜的环境和备注（服务器数量）
         const newRemark = `服务器数量: ${cabinet.server_count}`;
         db.prepare(`
-          UPDATE cabinets SET environment = ?, remark = ?, updated_at = datetime('now')
+          UPDATE cabinets SET environment = ?, remark = ?, updated_at = ?
           WHERE id = ?
-        `).run(cabinet.environment || '', newRemark, existing.id);
+        `).run(cabinet.environment || '', newRemark, getLocalTime(), existing.id);
         updated++;
       } else {
         // 插入新机柜
@@ -145,9 +145,9 @@ router.put('/:id', (req, res) => {
       total_u = COALESCE(?, total_u),
       reserved_u = COALESCE(?, reserved_u),
       remark = COALESCE(?, remark),
-      updated_at = datetime('now')
+      updated_at = ?
     WHERE id = ?
-  `).run(name, environment, total_u, reserved_u, remark, req.params.id);
+  `).run(name, environment, total_u, reserved_u, remark, getLocalTime(), req.params.id);
   
   const cabinet = db.prepare('SELECT * FROM cabinets WHERE id = ?').get(req.params.id);
   

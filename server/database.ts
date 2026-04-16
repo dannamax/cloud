@@ -5,11 +5,26 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, '../data/cmdb.db');
 
+// 获取本地时间的 SQLite 格式化字符串
+const localTimeNow = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 let db: Database.Database;
 
 export function initDatabase() {
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
+  
+  // 初始化表结构的 SQL，使用 JavaScript 获取本地时间
+  const now = localTimeNow();
   
   db.exec(`
     CREATE TABLE IF NOT EXISTS servers (
@@ -39,8 +54,8 @@ export function initDatabase() {
       remark TEXT,
       purchase_price REAL DEFAULT 0,
       purchase_date TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT '${now}',
+      updated_at TEXT DEFAULT '${now}'
     );
 
     CREATE TABLE IF NOT EXISTS change_logs (
@@ -52,7 +67,7 @@ export function initDatabase() {
       after_status TEXT,
       operator TEXT,
       remark TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT '${now}',
       FOREIGN KEY (server_id) REFERENCES servers(id)
     );
 
@@ -63,8 +78,8 @@ export function initDatabase() {
       display_name TEXT,
       role TEXT DEFAULT 'operator',
       status TEXT DEFAULT 'active',
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT '${now}',
+      updated_at TEXT DEFAULT '${now}'
     );
 
     CREATE TABLE IF NOT EXISTS operation_logs (
@@ -76,7 +91,7 @@ export function initDatabase() {
       target_type TEXT,
       detail TEXT,
       ip_address TEXT,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT '${now}'
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -84,7 +99,7 @@ export function initDatabase() {
       key TEXT UNIQUE,
       value TEXT,
       description TEXT,
-      updated_at TEXT DEFAULT (datetime('now'))
+      updated_at TEXT DEFAULT '${now}'
     );
 
     -- 机柜配置表
@@ -95,8 +110,8 @@ export function initDatabase() {
       total_u INTEGER DEFAULT 42,
       reserved_u TEXT DEFAULT '',
       remark TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT '${now}',
+      updated_at TEXT DEFAULT '${now}'
     );
 
     -- 环境配置表
@@ -107,8 +122,8 @@ export function initDatabase() {
       description TEXT,
       sort_order INTEGER DEFAULT 0,
       status TEXT DEFAULT 'active',
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT '${now}',
+      updated_at TEXT DEFAULT '${now}'
     );
 
     -- 标签配置表
@@ -117,7 +132,7 @@ export function initDatabase() {
       name TEXT UNIQUE NOT NULL,
       color TEXT DEFAULT '#6366f1',
       description TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT '${now}'
     );
 
     -- 版本历史表
@@ -128,7 +143,7 @@ export function initDatabase() {
       snapshot_data TEXT NOT NULL,
       description TEXT,
       operator TEXT,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT '${now}'
     );
 
     -- 版本索引
@@ -148,8 +163,8 @@ export function initDatabase() {
       width INTEGER DEFAULT 100,
       editable INTEGER DEFAULT 1,
       required INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT '${now}',
+      updated_at TEXT DEFAULT '${now}',
       UNIQUE(page_type, column_key)
     );
 
@@ -159,8 +174,8 @@ export function initDatabase() {
       environment_id INTEGER NOT NULL,
       column_key TEXT NOT NULL,
       column_value TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT '${now}',
+      updated_at TEXT DEFAULT '${now}',
       FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE,
       UNIQUE(environment_id, column_key)
     );
@@ -174,8 +189,8 @@ export function initDatabase() {
       icon TEXT DEFAULT 'Server',
       sort_order INTEGER DEFAULT 0,
       description TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT '${now}',
+      updated_at TEXT DEFAULT '${now}'
     );
 
     -- 插入默认角色类型
@@ -264,4 +279,9 @@ export function getDatabase() {
   return db;
 }
 
-export default { initDatabase, getDatabase };
+// 导出获取本地时间的函数，供其他模块使用
+export function getLocalTime() {
+  return localTimeNow();
+}
+
+export default { initDatabase, getDatabase, getLocalTime };

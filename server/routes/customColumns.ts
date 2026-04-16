@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDatabase } from '../database.js';
+import { getDatabase, getLocalTime } from '../database.js';
 
 const router = express.Router();
 
@@ -129,7 +129,7 @@ router.put('/:id', (req, res) => {
       width = COALESCE(?, width),
       editable = COALESCE(?, editable),
       required = COALESCE(?, required),
-      updated_at = datetime('now')
+      updated_at = ?
     WHERE id = ?
   `).run(
     column_label,
@@ -140,6 +140,7 @@ router.put('/:id', (req, res) => {
     width,
     editable !== undefined ? (editable ? 1 : 0) : null,
     required !== undefined ? (required ? 1 : 0) : null,
+    getLocalTime(),
     req.params.id
   );
 

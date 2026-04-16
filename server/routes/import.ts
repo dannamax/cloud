@@ -1,6 +1,6 @@
 import express from 'express';
 import XLSX from 'xlsx';
-import { getDatabase } from '../database.js';
+import { getDatabase, getLocalTime } from '../database.js';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -96,8 +96,8 @@ router.post('/import', (req, res) => {
         total_u INTEGER DEFAULT 42,
         reserved_u TEXT DEFAULT '',
         remark TEXT DEFAULT '',
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now'))
+        created_at TEXT DEFAULT '${getLocalTime()}',
+        updated_at TEXT DEFAULT '${getLocalTime()}'
       )`).run();
       
       // 确保标签表存在
@@ -106,7 +106,7 @@ router.post('/import', (req, res) => {
         name TEXT UNIQUE NOT NULL,
         color TEXT DEFAULT '#6366f1',
         description TEXT DEFAULT '',
-        created_at TEXT DEFAULT (datetime('now'))
+        created_at TEXT DEFAULT '${getLocalTime()}'
       )`).run();
       
       // 收集需要的环境、机柜、标签、角色类型

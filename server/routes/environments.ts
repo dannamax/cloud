@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDatabase } from '../database.js';
+import { getDatabase, getLocalTime } from '../database.js';
 
 const router = express.Router();
 
@@ -153,33 +153,36 @@ router.put('/:id', (req, res) => {
   }
   
   db.prepare(`
+  const now = getLocalTime();
+  
+  db.prepare(`
     UPDATE environments SET
       name = COALESCE(?, name),
       code = COALESCE(?, code),
       description = COALESCE(?, description),
       sort_order = COALESCE(?, sort_order),
       status = COALESCE(?, status),
-      updated_at = datetime('now')
+      updated_at = ?
     WHERE id = ?
-  `).run(name, code, description, sort_order, status, req.params.id);
-  
+  `).run(name, code, description, sort_order, status, now, req.params.id);
+
   // 如果环境名称变更，级联更新关联的 servers 和 cabinets 表
   if (name && name !== existing.name) {
     db.prepare('UPDATE servers SET environment = ? WHERE environment = ?').run(name, existing.name);
     db.prepare('UPDATE cabinets SET environment = ? WHERE environment = ?').run(name, existing.name);
   }
-  
+
   // 更新自定义字段值
   if (customFields && typeof customFields === 'object') {
     const upsertValue = db.prepare(`
       INSERT INTO environment_custom_values (environment_id, column_key, column_value, updated_at)
-      VALUES (?, ?, ?, datetime('now'))
+      VALUES (?, ?, ?, ?)
       ON CONFLICT(environment_id, column_key) 
-      DO UPDATE SET column_value = excluded.column_value, updated_at = datetime('now')
+      DO UPDATE SET column_value = excluded.column_value, updated_at = ?
     `);
     
     for (const [key, value] of Object.entries(customFields)) {
-      upsertValue.run(req.params.id, key, String(value || ''));
+      upsertValue.run(req.params.id, key, String(value || ''), now, now);
     }
   }
   
