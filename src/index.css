@@ -182,6 +182,20 @@
   stroke: #cbd5e1 !important;
 }
 
+/* 列表 hover 状态浅蓝色适配 */
+.light .hover\:bg-slate-800:hover,
+.light .hover\:bg-slate-800\/50:hover,
+.light .hover\:bg-slate-800\/30:hover,
+.light .hover\:bg-slate-700:hover,
+.light .hover\:bg-slate-700\/50:hover {
+  background-color: #dbeafe !important;
+}
+
+.light .hover\:text-slate-300:hover,
+.light .hover\:text-slate-500:hover {
+  color: #1e40af !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
