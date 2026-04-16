@@ -2,8 +2,8 @@
 # 多阶段构建：构建阶段 + 运行阶段
 
 # ===== 构建阶段 =====
-# 使用中科大镜像源
-FROM docker.mirrors.ustc.edu.cn/library/node:20-alpine AS builder
+# 使用 DaoCloud 镜像源
+FROM docker.m.daocloud.io/library/node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ COPY . .
 RUN npm run build
 
 # ===== 运行阶段 =====
-FROM docker.mirrors.ustc.edu.cn/library/node:20-alpine AS runner
+FROM docker.m.daocloud.io/library/node:20-alpine AS runner
 
 # 安装时区数据和 nginx
 RUN apk add --no-cache \
