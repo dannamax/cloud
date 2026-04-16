@@ -2,12 +2,15 @@
 # 多阶段构建：构建阶段 + 运行阶段
 
 # ===== 构建阶段 =====
-# 使用阿里云镜像源（解决国内网络问题）
-FROM registry.cn-hangzhou.aliyuncs.com/mirror_node/node:20-alpine AS builder
+# 使用中科大镜像源
+FROM docker.mirrors.ustc.edu.cn/library/node:20-alpine AS builder
 
 WORKDIR /app
 
-# 安装依赖（使用 npm install 缓存）
+# 设置npm镜像（解决依赖下载问题）
+RUN npm config set registry https://registry.npmmirror.com
+
+# 复制依赖文件并安装
 COPY package*.json ./
 RUN npm ci --only=production=false || npm install --legacy-peer-deps
 
@@ -18,7 +21,7 @@ COPY . .
 RUN npm run build
 
 # ===== 运行阶段 =====
-FROM registry.cn-hangzhou.aliyuncs.com/mirror_node/node:20-alpine AS runner
+FROM docker.mirrors.ustc.edu.cn/library/node:20-alpine AS runner
 
 # 安装时区数据和 nginx
 RUN apk add --no-cache \
@@ -38,8 +41,9 @@ COPY --from=builder /app/package.json ./package.json
 # 复制 nginx 配置
 COPY nginx.conf /etc/nginx/http.d/default.conf
 
-# 安装生产依赖
-RUN npm ci --only=production --omit=dev || npm install --production --legacy-peer-deps
+# 安装生产依赖（使用国内镜像源）
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm ci --only=production --omit=dev || npm install --production --legacy-peer-deps
 
 # 创建数据目录
 RUN mkdir -p /app/data /app/logs
