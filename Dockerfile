@@ -38,7 +38,9 @@ RUN apk add --no-cache \
     nginx \
     curl \
     && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && echo "Asia/Shanghai" > /etc/timezone
+    && echo "Asia/Shanghai" > /etc/timezone \
+    && mkdir -p /var/lib/nginx/tmp/client_body /run/nginx \
+    && chown -R nginx:nginx /var/lib/nginx /run/nginx
 
 WORKDIR /app
 
@@ -53,23 +55,16 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY nginx.conf /etc/nginx/http.d/default.conf
 
 # 创建数据目录
-RUN mkdir -p /app/data /app/logs
-
-# 创建非 root 用户
-RUN addgroup -g 1001 -S cmdb && \
-    adduser -S cmdb -u 1001 -G cmdb && \
-    chown -R cmdb:cmdb /app
-
-USER cmdb
+RUN mkdir -p /app/data /app/logs /var/lib/nginx/tmp/client_body /run/nginx
 
 # 暴露端口
 EXPOSE 80
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/health || exit 1
+    CMD curl -f http://localhost/api/health || exit 1
 
 # 启动 nginx 和后端服务
 CMD sh -c "nginx -g 'daemon off;' & \
     sleep 3 && \
-    exec node --env-file=.env server/index.js"
+    exec node_modules/.bin/tsx server/index.ts"
