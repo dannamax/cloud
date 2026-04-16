@@ -152,7 +152,6 @@ router.put('/:id', (req, res) => {
     }
   }
   
-  db.prepare(`
   const now = getLocalTime();
   
   db.prepare(`

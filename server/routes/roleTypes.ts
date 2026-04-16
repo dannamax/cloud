@@ -49,10 +49,9 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM role_types WHERE id = ?').get(req.params.id);
   if (!existing) {
     return res.status(404).json({ error: '角色类型不存在' });
-  }
-
+}
+  
   db.prepare(`
-    db.prepare(`
     UPDATE role_types SET
       display_name = COALESCE(?, display_name),
       color = COALESCE(?, color),
