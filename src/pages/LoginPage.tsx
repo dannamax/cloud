@@ -9,10 +9,17 @@ export function LoginPage() {
   const navigate = useNavigate();
   const setUser = useAppStore((state) => state.setUser);
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
+  const setTheme = useAppStore((state) => state.setTheme);
+  const theme = useAppStore((state) => state.theme);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // 初始化主题
+  useEffect(() => {
+    setTheme(theme);
+  }, []);
 
   // 如果已经登录，直接跳转到 dashboard
   useEffect(() => {

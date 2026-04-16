@@ -25,6 +25,11 @@ interface AppState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   
+  // 主题状态
+  theme: 'dark' | 'light';
+  setTheme: (theme: 'dark' | 'light') => void;
+  toggleTheme: () => void;
+  
   // 系统配置
   systemName: string;
   platformTitle: string;
@@ -59,6 +64,26 @@ export const useAppStore = create<AppState>()(
   sidebarCollapsed: false,
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 
+  // 主题状态
+  theme: 'dark',
+  setTheme: (theme) => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+    set({ theme });
+  },
+  toggleTheme: () => set((state) => {
+    const newTheme = state.theme === 'dark' ? 'light' : 'dark';
+    if (newTheme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+    return { theme: newTheme };
+  }),
+
   // 系统配置
   systemName: 'CMDB',
   platformTitle: '研发环境服务器管理平台',
@@ -71,6 +96,7 @@ export const useAppStore = create<AppState>()(
         isAuthenticated: state.isAuthenticated,
         systemName: state.systemName,
         platformTitle: state.platformTitle,
+        theme: state.theme,
       }),
     }
   )

@@ -12,7 +12,9 @@ import {
   Cog,
   ClipboardList,
   Layers,
-  DollarSign
+  DollarSign,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 
@@ -30,7 +32,7 @@ const navItems = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { user, logout, sidebarCollapsed, toggleSidebar, systemName, platformTitle } = useAppStore();
+  const { user, logout, sidebarCollapsed, toggleSidebar, systemName, platformTitle, theme, toggleTheme } = useAppStore();
 
   return (
     <div className="flex h-screen bg-background">
@@ -106,6 +108,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {platformTitle}
           </div>
           <div className="flex items-center gap-4">
+            {/* 主题切换 */}
+            <button
+              onClick={toggleTheme}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-400 hover:bg-background-border hover:text-foreground transition-colors"
+              title={theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'}
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun size={18} />
+                  <span className="text-sm">亮色</span>
+                </>
+              ) : (
+                <>
+                  <Moon size={18} />
+                  <span className="text-sm">暗色</span>
+                </>
+              )}
+            </button>
             <span className="text-sm text-slate-400">
               {new Date().toLocaleDateString('zh-CN', { 
                 year: 'numeric', 
