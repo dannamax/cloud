@@ -7,6 +7,9 @@ FROM docker.m.daocloud.io/library/node:20-alpine AS builder
 
 WORKDIR /app
 
+# 切换Alpine镜像源为中科大
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+
 # 安装编译依赖（better-sqlite3 需要）
 RUN apk add --no-cache python3 make g++
 
@@ -25,6 +28,9 @@ RUN npm run build
 
 # ===== 运行阶段 =====
 FROM docker.m.daocloud.io/library/node:20-alpine AS runner
+
+# 切换Alpine镜像源为中科大
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 
 # 安装时区数据和 nginx
 RUN apk add --no-cache \
