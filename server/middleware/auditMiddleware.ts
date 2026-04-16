@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getDatabase } from '../database.js';
+import { getDatabase, getLocalTime } from '../database.js';
 
 /**
  * API网关审计中间件
@@ -423,8 +423,8 @@ export function auditMiddleware(req: Request, res: Response, next: NextFunction)
                       'system';
       
       db.prepare(`
-        INSERT INTO operation_logs (user_id, username, action, target, target_type, detail, ip_address)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO operation_logs (user_id, username, action, target, target_type, detail, ip_address, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         req.body?.user_id || null,
         username,
@@ -432,7 +432,8 @@ export function auditMiddleware(req: Request, res: Response, next: NextFunction)
         target,
         config.targetType,
         detail,
-        req.ip || req.socket.remoteAddress || 'unknown'
+        req.ip || req.socket.remoteAddress || 'unknown',
+        getLocalTime()
       );
         
       } catch (error) {
