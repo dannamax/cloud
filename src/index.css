@@ -156,6 +156,32 @@
   color: #475569 !important;
 }
 
+/* 饼图和其他组件的内联白色文字适配 */
+.light [style*="color: '#fff'"],
+.light [style*="color: #fff"],
+.light [style="color:#fff"],
+.light [style*="color: rgb(255, 255, 255)"] {
+  color: #1e293b !important;
+}
+
+/* recharts 图表文字颜色适配 */
+.light .recharts-text,
+.light .recharts-cartesian-axis-tick-value {
+  fill: #334155 !important;
+}
+
+/* 饼图中间汇总区域文字 */
+.light [style*="94A3B8"],
+.light [style*="#94A3B8"] {
+  color: #475569 !important;
+}
+
+/* SVG 线条颜色适配 */
+.light line[stroke*="#64748B"],
+.light [style*="64748B"] {
+  stroke: #cbd5e1 !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
