@@ -96,6 +96,66 @@
   background-color: #e2e8f0 !important;
 }
 
+.light .bg-slate-700,
+.light .bg-slate-700\/50 {
+  background-color: #e2e8f0 !important;
+}
+
+.light .bg-slate-900\/30 {
+  background-color: #f1f5f9 !important;
+}
+
+/* SQL 维护弹窗适配 */
+.light .bg-slate-900,
+.light .bg-slate-900\/50,
+.light .bg-slate-900\/30 {
+  background-color: #f8fafc !important;
+}
+
+.light .border-slate-700,
+.light .border-slate-600 {
+  border-color: #cbd5e1 !important;
+}
+
+/* SQL 代码高亮颜色适配 */
+.light code,
+.light .text-green-400,
+.light .text-cyan-400,
+.light .text-yellow-400,
+.light .text-purple-400,
+.light .text-pink-400 {
+  color: inherit !important;
+}
+
+.light .text-green-400 {
+  color: #166534 !important;
+}
+
+.light .text-cyan-400 {
+  color: #0e7490 !important;
+}
+
+.light .text-yellow-400 {
+  color: #854d0e !important;
+}
+
+.light .text-purple-400 {
+  color: #6b21a8 !important;
+}
+
+.light .text-pink-400 {
+  color: #9d174d !important;
+}
+
+/* placeholder 颜色适配 */
+.light .placeholder\:text-slate-600::placeholder {
+  color: #64748b !important;
+}
+
+.light .text-slate-600 {
+  color: #475569 !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
