@@ -248,6 +248,13 @@
   color: #334155 !important;
 }
 
+/* 折旧说明区域文字颜色适配 */
+.light .text-blue-200,
+.light .text-blue-300,
+.light .text-blue-400 {
+  color: #1e40af !important;
+}
+
 @layer utilities {
   .glass {
     @apply bg-background-card/80 backdrop-blur-md;
