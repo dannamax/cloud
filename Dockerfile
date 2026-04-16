@@ -42,17 +42,15 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# 复制构建产物
+# 复制构建产物（直接使用 builder 的 node_modules，避免重复编译）
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/package-lock.json ./package-lock.json
+COPY --from=builder /app/node_modules ./node_modules
 
 # 复制 nginx 配置
 COPY nginx.conf /etc/nginx/http.d/default.conf
-
-# 安装生产依赖（使用国内镜像源）
-RUN npm config set registry https://registry.npmmirror.com && \
-    npm ci --only=production --omit=dev || npm install --production --legacy-peer-deps
 
 # 创建数据目录
 RUN mkdir -p /app/data /app/logs
