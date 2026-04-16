@@ -10,7 +10,9 @@ import {
   Layers,
   Database,
   X,
-  Monitor
+  Monitor,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { serverApi, changeLogApi, environmentApi, cabinetApi } from '../services/api';
@@ -32,6 +34,62 @@ export function DashboardPage() {
   const [expandedBrands, setExpandedBrands] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'brand' | 'product'>('brand'); // 厂商视角 / 产品视角
   const [selectedProductRole, setSelectedProductRole] = useState<string>(''); // 选中的产品角色
+  const [roleDetailSort, setRoleDetailSort] = useState<{ column: string; direction: 'asc' | 'desc' }>({ column: 'system_ip', direction: 'asc' });
+
+  // 角色详情表格排序处理
+  const handleRoleDetailSort = (column: string) => {
+    setRoleDetailSort(prev => {
+      if (prev.column !== column) return { column, direction: 'asc' };
+      if (prev.direction === 'asc') return { column, direction: 'desc' };
+      return { column: 'system_ip', direction: 'asc' };
+    });
+  };
+
+  // 排序后的服务器列表
+  const getSortedServers = useCallback((servers: any[]) => {
+    if (!servers || servers.length === 0) return [];
+    const sorted = [...servers].sort((a, b) => {
+      const { column, direction } = roleDetailSort;
+      let aVal = '', bVal = '';
+      
+      switch (column) {
+        case 'system_ip':
+          aVal = a.system_ip || '';
+          bVal = b.system_ip || '';
+          break;
+        case 'manage_ip':
+          aVal = a.manage_ip || '';
+          bVal = b.manage_ip || '';
+          break;
+        case 'brand':
+          aVal = `${a.brand || ''} ${a.model || ''}`.trim();
+          bVal = `${b.brand || ''} ${b.model || ''}`.trim();
+          break;
+        case 'environment':
+          aVal = a.environment || '';
+          bVal = b.environment || '';
+          break;
+        case 'cabinet':
+          aVal = `${a.cabinet || ''} ${a.u_position || ''}`.trim();
+          bVal = `${b.cabinet || ''} ${b.u_position || ''}`.trim();
+          break;
+        case 'status':
+          aVal = a.online_status || '';
+          bVal = b.online_status || '';
+          break;
+        case 'sn':
+          aVal = a.sn || '';
+          bVal = b.sn || '';
+          break;
+        default:
+          return 0;
+      }
+      
+      const comparison = aVal.localeCompare(bVal, 'zh-CN');
+      return direction === 'asc' ? comparison : -comparison;
+    });
+    return sorted;
+  }, [roleDetailSort]);
 
   // 优化：使用 useCallback 缓存点击处理器
   const handleCellClick = useCallback((role: string, model: string, brand: string) => {
@@ -697,7 +755,9 @@ export function DashboardPage() {
                   return matchBrand && matchModel && matchRole;
                 }) || [];
 
-                if (servers.length === 0) {
+                const sortedServers = getSortedServers(servers);
+
+                if (sortedServers.length === 0) {
                   return (
                     <div className="text-center py-12 text-slate-500">
                       暂无服务器数据
@@ -710,17 +770,101 @@ export function DashboardPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-slate-700">
-                          <th className="text-left py-3 px-4 text-slate-400 font-medium">系统IP</th>
-                          <th className="text-left py-3 px-4 text-slate-400 font-medium">管理IP</th>
-                          <th className="text-left py-3 px-4 text-slate-400 font-medium">厂商型号</th>
-                          <th className="text-left py-3 px-4 text-slate-400 font-medium">归属环境</th>
-                          <th className="text-left py-3 px-4 text-slate-400 font-medium">机柜位置</th>
-                          <th className="text-left py-3 px-4 text-slate-400 font-medium">状态</th>
-                          <th className="text-left py-3 px-4 text-slate-400 font-medium">SN</th>
+                          <th 
+                            className="text-left py-3 px-4 text-slate-400 font-medium cursor-pointer hover:text-white transition-colors"
+                            onClick={() => handleRoleDetailSort('system_ip')}
+                          >
+                            <span className="flex items-center gap-1">
+                              系统IP
+                              {roleDetailSort.column === 'system_ip' && (
+                                roleDetailSort.direction === 'asc' 
+                                  ? <ChevronUp size={14} className="text-primary" />
+                                  : <ChevronDown size={14} className="text-primary" />
+                              )}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-left py-3 px-4 text-slate-400 font-medium cursor-pointer hover:text-white transition-colors"
+                            onClick={() => handleRoleDetailSort('manage_ip')}
+                          >
+                            <span className="flex items-center gap-1">
+                              管理IP
+                              {roleDetailSort.column === 'manage_ip' && (
+                                roleDetailSort.direction === 'asc' 
+                                  ? <ChevronUp size={14} className="text-primary" />
+                                  : <ChevronDown size={14} className="text-primary" />
+                              )}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-left py-3 px-4 text-slate-400 font-medium cursor-pointer hover:text-white transition-colors"
+                            onClick={() => handleRoleDetailSort('brand')}
+                          >
+                            <span className="flex items-center gap-1">
+                              厂商型号
+                              {roleDetailSort.column === 'brand' && (
+                                roleDetailSort.direction === 'asc' 
+                                  ? <ChevronUp size={14} className="text-primary" />
+                                  : <ChevronDown size={14} className="text-primary" />
+                              )}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-left py-3 px-4 text-slate-400 font-medium cursor-pointer hover:text-white transition-colors"
+                            onClick={() => handleRoleDetailSort('environment')}
+                          >
+                            <span className="flex items-center gap-1">
+                              归属环境
+                              {roleDetailSort.column === 'environment' && (
+                                roleDetailSort.direction === 'asc' 
+                                  ? <ChevronUp size={14} className="text-primary" />
+                                  : <ChevronDown size={14} className="text-primary" />
+                              )}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-left py-3 px-4 text-slate-400 font-medium cursor-pointer hover:text-white transition-colors"
+                            onClick={() => handleRoleDetailSort('cabinet')}
+                          >
+                            <span className="flex items-center gap-1">
+                              机柜位置
+                              {roleDetailSort.column === 'cabinet' && (
+                                roleDetailSort.direction === 'asc' 
+                                  ? <ChevronUp size={14} className="text-primary" />
+                                  : <ChevronDown size={14} className="text-primary" />
+                              )}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-left py-3 px-4 text-slate-400 font-medium cursor-pointer hover:text-white transition-colors"
+                            onClick={() => handleRoleDetailSort('status')}
+                          >
+                            <span className="flex items-center gap-1">
+                              状态
+                              {roleDetailSort.column === 'status' && (
+                                roleDetailSort.direction === 'asc' 
+                                  ? <ChevronUp size={14} className="text-primary" />
+                                  : <ChevronDown size={14} className="text-primary" />
+                              )}
+                            </span>
+                          </th>
+                          <th 
+                            className="text-left py-3 px-4 text-slate-400 font-medium cursor-pointer hover:text-white transition-colors"
+                            onClick={() => handleRoleDetailSort('sn')}
+                          >
+                            <span className="flex items-center gap-1">
+                              SN
+                              {roleDetailSort.column === 'sn' && (
+                                roleDetailSort.direction === 'asc' 
+                                  ? <ChevronUp size={14} className="text-primary" />
+                                  : <ChevronDown size={14} className="text-primary" />
+                              )}
+                            </span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {servers.map((server: any, idx: number) => (
+                        {sortedServers.map((server: any, idx: number) => (
                           <tr
                             key={server.id || idx}
                             className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
