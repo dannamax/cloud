@@ -257,8 +257,10 @@
 
 /* 仪表盘角色-机型分布区域按钮选中状态改为浅蓝色 */
 .light .bg-primary\/30,
-.light .bg-primary\/20 {
+.light .bg-primary\/20,
+.light .bg-primary {
   background-color: #bfdbfe !important;
+  color: #1e40af !important;
 }
 
 @layer utilities {
