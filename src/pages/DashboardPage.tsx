@@ -403,8 +403,21 @@ export function DashboardPage() {
           {/* 角色-机型分布 - 厂商/型号下拉 + 饼图视图 */}
           <div className="bg-background-card border border-background-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">角色-机型分布</h2>
-              <div className="flex items-center justify-end gap-4">
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-semibold text-white">角色-机型分布</h2>
+                <div className="text-sm text-slate-400 whitespace-nowrap">
+                  {viewMode === 'brand' ? (
+                    selectedModel === '全部' 
+                      ? `${selectedBrand} 全部型号 ${modelDistribution.total} 台服务器，${modelDistribution.dist.length} 种角色`
+                      : `${selectedBrand} - ${selectedModel} ${modelDistribution.total} 台服务器，${modelDistribution.dist.length} 种角色`
+                  ) : (
+                    `${selectedProductRole} 角色 ${
+                      stats?.allServers?.filter((s: any) => (s.role || '未分配').split('/')[0].trim() === selectedProductRole).length || 0
+                    } 台服务器`
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-4 shrink-0">
                 <div className="flex bg-slate-800 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode('brand')}
@@ -549,19 +562,7 @@ export function DashboardPage() {
                 </div>
                 )}
 
-                {/* 底部统计 */}
-                <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-sm">
-                  <span className="text-slate-500">
-                    {viewMode === 'brand' ? (
-                      selectedModel === '全部' 
-                        ? `${selectedBrand} 全部型号 ${modelDistribution.total} 台服务器，${modelDistribution.dist.length} 种角色`
-                        : `${selectedBrand} - ${selectedModel} ${modelDistribution.total} 台服务器，${modelDistribution.dist.length} 种角色`
-                    ) : (
-                      `${selectedProductRole} 角色 ${
-                        stats?.allServers?.filter((s: any) => (s.role || '未分配').split('/')[0].trim() === selectedProductRole).length || 0
-                      } 台服务器`
-                    )}
-                  </span>
+                <div className="pt-4 border-t border-slate-800 text-sm text-right">
                   <span
                     className="text-primary hover:text-primary/80 cursor-pointer"
                     onClick={() => navigate('/servers')}
@@ -973,7 +974,7 @@ function ProductPieChartInner({
   return (
     <>
       {/* 饼图容器 */}
-      <div className="h-[24rem] relative">
+      <div className="h-[28rem] relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -1101,7 +1102,7 @@ function BrandPieChartInner({ pieData, selectedBrand, selectedModel, total, onCe
   return (
     <>
       {/* 饼图容器 */}
-      <div className="h-[24rem] relative">
+      <div className="h-[28rem] relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
