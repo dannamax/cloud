@@ -401,6 +401,73 @@ export function ServersPage() {
     };
   }, [stats]);
 
+  // 环境筛选状态 - 用于控制角色和机柜的显示
+  const [selectedCategoryEnv, setSelectedCategoryEnv] = useState<string | null>(null);
+
+  // 根据选中的环境过滤角色
+  const filteredRoles = useMemo(() => {
+    if (!selectedCategoryEnv || selectedCategoryEnv === '__all__' || !stats?.allServers) {
+      return categoryStats?.roles || [];
+    }
+    const envServers = stats.allServers.filter(s => s.environment === selectedCategoryEnv);
+    const roleMap = new Map<string, number>();
+    envServers.forEach(s => {
+      const role = s.role || '未分配';
+      roleMap.set(role, (roleMap.get(role) || 0) + 1);
+    });
+    return Array.from(roleMap.entries())
+      .map(([role, count]) => ({ role, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [selectedCategoryEnv, stats, categoryStats]);
+
+  // 根据选中的环境过滤机柜
+  const filteredCabinets = useMemo(() => {
+    if (!selectedCategoryEnv || selectedCategoryEnv === '__all__' || !stats?.allServers) {
+      return categoryStats?.cabinets || [];
+    }
+    const envServers = stats.allServers.filter(s => s.environment === selectedCategoryEnv);
+    const cabinetMap = new Map<string, number>();
+    envServers.forEach(s => {
+      if (s.cabinet) {
+        cabinetMap.set(s.cabinet, (cabinetMap.get(s.cabinet) || 0) + 1);
+      }
+    });
+    return Array.from(cabinetMap.entries())
+      .map(([cabinet, count]) => ({ cabinet, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [selectedCategoryEnv, stats, categoryStats]);
+
+  // 环境分类按钮点击处理
+  const handleEnvironmentCategoryClick = (envName: string) => {
+    if (selectedCategoryEnv === envName) {
+      // 再次点击同一环境，取消选择
+      setSelectedCategoryEnv(null);
+      // 清除 URL 参数
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('environment');
+      setSearchParams(newParams);
+    } else {
+      // 选择新环境
+      setSelectedCategoryEnv(envName);
+      // 同时更新URL参数进行实际筛选
+      const newParams = new URLSearchParams(searchParams);
+      if (envName === '__all__') {
+        newParams.delete('environment');
+      } else {
+        newParams.set('environment', envName);
+      }
+      setSearchParams(newParams);
+    }
+  };
+
+  // 清除环境筛选
+  const clearEnvironmentFilter = () => {
+    setSelectedCategoryEnv(null);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('environment');
+    setSearchParams(newParams);
+  };
+
   const handleCategoryClick = (type: 'environment' | 'role' | 'status', value: string) => {
     const newParams = new URLSearchParams(searchParams);
     const currentValue = newParams.get(type) || '';
@@ -655,12 +722,33 @@ export function ServersPage() {
                 <span className="text-xs font-medium text-slate-300">环境</span>
               </div>
               <div className={`flex gap-1.5 ${expandedEnvironments ? 'flex-wrap content-start' : 'overflow-x-auto pb-1'} flex-1`}>
+                {/* 全部环境按钮 */}
+                <button
+                  onClick={() => {
+                    if (selectedCategoryEnv === '__all__') {
+                      setSelectedCategoryEnv(null);
+                    } else {
+                      setSelectedCategoryEnv('__all__');
+                    }
+                  }}
+                  className={`px-2 py-1 rounded-md text-xs whitespace-nowrap transition-colors ${
+                    selectedCategoryEnv === '__all__'
+                      ? 'bg-primary text-white ring-2 ring-primary/50'
+                      : selectedCategoryEnv !== null && selectedCategoryEnv !== '__all__'
+                      ? 'bg-primary/50 text-white'
+                      : 'bg-background-card border border-background-border text-slate-400 hover:border-primary/50 hover:text-white'
+                  }`}
+                >
+                  全部环境({categoryStats.total})
+                </button>
                 {categoryStats.environments.slice(0, expandedEnvironments ? undefined : 8).map((item) => (
                   <button
                     key={item.environment}
-                    onClick={() => handleCategoryClick('environment', item.environment)}
+                    onClick={() => handleEnvironmentCategoryClick(item.environment)}
                     className={`px-2 py-1 rounded-md text-xs whitespace-nowrap transition-colors ${
-                      filters.environment === item.environment
+                      selectedCategoryEnv === item.environment
+                        ? 'bg-primary text-white ring-2 ring-primary/50'
+                        : filters.environment === item.environment
                         ? 'bg-primary text-white'
                         : 'bg-background-card border border-background-border text-slate-400 hover:border-primary/50 hover:text-white'
                     }`}
@@ -698,9 +786,12 @@ export function ServersPage() {
               <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-1">
                 <HardDrive className="w-3.5 h-3.5 text-purple-500" />
                 <span className="text-xs font-medium text-slate-300">角色</span>
+                {selectedCategoryEnv && (
+                  <span className="text-[10px] text-primary" title={`已筛选: ${selectedCategoryEnv}`}>*</span>
+                )}
               </div>
               <div className={`flex gap-1.5 ${expandedRoles ? 'flex-wrap content-start' : 'overflow-x-auto pb-1'} flex-1`}>
-                {categoryStats.roles.slice(0, expandedRoles ? undefined : 12).map((item) => (
+                {filteredRoles.slice(0, expandedRoles ? undefined : 12).map((item) => (
                   <button
                     key={item.role}
                     onClick={() => handleCategoryClick('role', item.role)}
@@ -713,11 +804,11 @@ export function ServersPage() {
                     {item.role}({item.count})
                   </button>
                 ))}
-                {categoryStats.roles.length > 12 && (
+                {filteredRoles.length > 12 && (
                   <button
                     onClick={() => setExpandedRoles(!expandedRoles)}
                     className="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-background-card border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:border-purple-500/50 transition-colors flex items-center gap-1"
-                    title={expandedRoles ? '收起' : `展开更多（还有 ${categoryStats.roles.length - 12} 个）`}
+                    title={expandedRoles ? '收起' : `展开更多（还有 ${filteredRoles.length - 12} 个）`}
                   >
                     {expandedRoles ? (
                       <>
@@ -726,13 +817,13 @@ export function ServersPage() {
                       </>
                     ) : (
                       <>
-                        <span>+{categoryStats.roles.length - 12}</span>
+                        <span>+{filteredRoles.length - 12}</span>
                         <ChevronDown className="w-3 h-3" />
                       </>
                     )}
                   </button>
                 )}
-                {categoryStats.roles.length === 0 && (
+                {filteredRoles.length === 0 && (
                   <span className="text-xs text-slate-500">暂无数据</span>
                 )}
               </div>
@@ -743,9 +834,12 @@ export function ServersPage() {
               <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-1">
                 <Building2 className="w-3.5 h-3.5 text-amber-500" />
                 <span className="text-xs font-medium text-slate-300">机柜</span>
+                {selectedCategoryEnv && (
+                  <span className="text-[10px] text-primary" title={`已筛选: ${selectedCategoryEnv}`}>*</span>
+                )}
               </div>
               <div className={`flex gap-1.5 ${expandedCabinets ? 'flex-wrap content-start' : 'overflow-x-auto pb-1'} flex-1`}>
-                {categoryStats.cabinets.slice(0, expandedCabinets ? undefined : 10).map((item) => (
+                {filteredCabinets.slice(0, expandedCabinets ? undefined : 10).map((item) => (
                   <button
                     key={item.cabinet}
                     onClick={() => {
@@ -766,11 +860,11 @@ export function ServersPage() {
                     {item.cabinet}({item.count})
                   </button>
                 ))}
-                {categoryStats.cabinets.length > 10 && (
+                {filteredCabinets.length > 10 && (
                   <button
                     onClick={() => setExpandedCabinets(!expandedCabinets)}
                     className="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-background-card border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/50 transition-colors flex items-center gap-1"
-                    title={expandedCabinets ? '收起' : `展开更多（还有 ${categoryStats.cabinets.length - 10} 个）`}
+                    title={expandedCabinets ? '收起' : `展开更多（还有 ${filteredCabinets.length - 10} 个）`}
                   >
                     {expandedCabinets ? (
                       <>
@@ -779,13 +873,13 @@ export function ServersPage() {
                       </>
                     ) : (
                       <>
-                        <span>+{categoryStats.cabinets.length - 10}</span>
+                        <span>+{filteredCabinets.length - 10}</span>
                         <ChevronDown className="w-3 h-3" />
                       </>
                     )}
                   </button>
                 )}
-                {categoryStats.cabinets.length === 0 && (
+                {filteredCabinets.length === 0 && (
                   <span className="text-xs text-slate-500">暂无数据</span>
                 )}
               </div>
