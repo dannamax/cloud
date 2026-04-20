@@ -32,3 +32,6 @@ npm-debug.log*
 # Cache
 .cache/
 *.tsbuildinfo
+
+# 上传文件
+uploads/
