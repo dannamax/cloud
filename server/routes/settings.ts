@@ -10,6 +10,35 @@ router.get('/', (req, res) => {
   res.json(settings);
 });
 
+// 导出数据（必须在 /:key 之前定义，否则会被 :key 捕获）
+router.get('/export', (req, res) => {
+  const db = getDatabase();
+  const servers = db.prepare('SELECT * FROM servers').all();
+  const changeLogs = db.prepare('SELECT * FROM change_logs').all();
+  
+  res.json({
+    servers,
+    changeLogs,
+    exportedAt: new Date().toISOString(),
+  });
+});
+
+// 清空数据（必须在 /:key 之前定义）
+router.delete('/clear', (req, res) => {
+  const db = getDatabase();
+  const { type } = req.body;
+  
+  if (type === 'servers') {
+    db.prepare('DELETE FROM servers').run();
+    db.prepare('DELETE FROM change_logs').run();
+  } else if (type === 'logs') {
+    db.prepare('DELETE FROM change_logs').run();
+    db.prepare('DELETE FROM operation_logs').run();
+  }
+  
+  res.json({ success: true });
+});
+
 // 获取单个设置
 router.get('/:key', (req, res) => {
   const db = getDatabase();
@@ -44,35 +73,6 @@ router.put('/:key', (req, res) => {
   
   const setting = db.prepare('SELECT * FROM settings WHERE key = ?').get(key);
   res.json(setting);
-});
-
-// 导出数据
-router.get('/export', (req, res) => {
-  const db = getDatabase();
-  const servers = db.prepare('SELECT * FROM servers').all();
-  const changeLogs = db.prepare('SELECT * FROM change_logs').all();
-  
-  res.json({
-    servers,
-    changeLogs,
-    exportedAt: new Date().toISOString(),
-  });
-});
-
-// 清空数据
-router.delete('/clear', (req, res) => {
-  const db = getDatabase();
-  const { type } = req.body;
-  
-  if (type === 'servers') {
-    db.prepare('DELETE FROM servers').run();
-    db.prepare('DELETE FROM change_logs').run();
-  } else if (type === 'logs') {
-    db.prepare('DELETE FROM change_logs').run();
-    db.prepare('DELETE FROM operation_logs').run();
-  }
-  
-  res.json({ success: true });
 });
 
 export default router;
